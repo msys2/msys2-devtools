@@ -1,0 +1,13 @@
+#!/bin/bash
+# Run with: shellcheck -o check-unassigned-uppercase -ax shellcheck-pkgbuild
+set -e
+# fake the ones provided by makepkg
+pkgdir=""
+srcdir=""
+MINGW_PACKAGE_PREFIX=""
+MINGW_PREFIX=""
+CARCH=""
+source ./PKGBUILD
+# fake usage of all others
+# shellcheck disable=SC2086,SC2128,SC2154
+echo $srcdir $sha256sums $source $makedepends $depends $install $license $pkgdir $pkgdesc $arch $url $pkgrel $pkgname $pkgbase
