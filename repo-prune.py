@@ -128,11 +128,14 @@ def main(argv):
     parser = argparse.ArgumentParser(
         description="List old packages to prune", allow_abbrev=False)
     parser.add_argument("root", help="path to root dir")
+    parser.add_argument("--days", default=365, type=int,
+                        help="days after which a package can be pruned")
 
-    time_delta = timedelta(days=365)
     args = parser.parse_args(argv[1:])
+    log(f"Pruning unused files older than {args.days} days")
+    time_delta = timedelta(days=args.days)
     paths = get_files_to_prune(args.root, time_delta)
-    log(f"Found {len(paths)} files to prune older than {time_delta}")
+    log(f"Found {len(paths)} files to prune")
 
     for path in sorted(paths):
         print(path)
