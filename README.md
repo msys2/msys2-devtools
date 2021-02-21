@@ -39,3 +39,29 @@ Sync to SourceForge:
 ```bash
 msys2-devtools/msys2-dbsync SF_USERNAME
 ```
+
+
+## Fix pacman symlinks
+
+```bash
+echo $'mingw/x86_64 mingw64 \n mingw/i686 mingw32 \n msys/x86_64 msys \n msys/i686 msys' | while read path db; do
+  for type in db files; do
+    for suffix in "" .sig; do
+      ( cd /srv/msys2repo/$path/ && test ! -L $db.$type$suffix && diff $db.$type{,.tar.gz}$suffix && ln -sf $db.$type{.tar.gz,}$suffix )
+    done
+  done
+done
+```
+
+
+## Link latest installer
+
+```bash
+cd /srv/msys2repo/
+ln -sf x86_64/$(ls x86_64/ -t | grep '.tar.xz$' | head -1) msys2-x86_64-latest.tar.xz
+ln -sf x86_64/$(ls x86_64/ -t | grep '.tar.xz.sig$' | head -1) msys2-x86_64-latest.tar.xz.sig
+ln -sf x86_64/$(ls x86_64/ -t | grep '.exe$' | head -1) msys2-x86_64-latest.exe
+ln -sf x86_64/$(ls x86_64/ -t | grep '.exe.sig$' | head -1) msys2-x86_64-latest.exe.sig
+ln -sf x86_64/$(ls x86_64/ -t | grep '.sfx.exe$' | head -1) msys2-x86_64-latest.sfx.exe
+ln -sf x86_64/$(ls x86_64/ -t | grep '.sfx.exe.sig$' | head -1) msys2-x86_64-latest.sfx.exe.sig
+```
