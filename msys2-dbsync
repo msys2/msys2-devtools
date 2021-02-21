@@ -1,0 +1,46 @@
+#!/bin/sh
+
+if test -z "${1}"
+then
+    echo "Missing SF.net username." >&2
+    exit 1
+fi
+
+pub=/srv/msys2repo
+sf="${1}@frs.sourceforge.net:/home/frs/project/msys2"
+
+echo "distrib"
+rsync -rti --delete $pub/distrib/ $sf/Base/
+
+echo "mingw/sources"
+rsync -rti --delete $pub/mingw/sources/ $sf/REPOS/MINGW/Sources/
+
+echo "msys/sources"
+rsync -rti --delete $pub/msys/sources/ $sf/REPOS/MSYS2/Sources/
+
+echo "mingw/x86_64 packages"
+rsync -rti --exclude 'mingw64.db*' --exclude 'mingw64.files*' $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
+
+echo "mingw/i686 packages"
+rsync -rti --exclude 'mingw32.db*' --exclude 'mingw32.files*' $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
+
+echo "msys/x86_64 packages"
+rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
+
+echo "msys/i686 packages"
+rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/i686/ $sf/REPOS/MSYS2/i686/
+
+echo "Waiting 30 minutes before syncing databases"
+sleep 30m
+
+echo "mingw/x86_64 database"
+rsync -rtiL --delete $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
+
+echo "mingw/i686 database"
+rsync -rtiL --delete $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
+
+echo "msys/x86_64 database"
+rsync -rtiL --delete $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
+
+echo "msys/i686 database"
+rsync -rtiL --delete $pub/msys/i686/ $sf/REPOS/MSYS2/i686/

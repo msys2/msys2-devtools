@@ -1,0 +1,10 @@
+#!/usr/bin/bash
+
+set -e
+
+host=repo@msys2.appfleet.io
+
+# remote_gpga_socket="$(ssh "${host}" -- gpgconf --list-dirs agent-socket)"
+remote_gpga_socket="/home/repo/.gnupg/S.gpg-agent"
+
+exec ssh -tt -A -R "${remote_gpga_socket}:$(gpgconf --list-dirs agent-extra-socket)" "${host}" -- bash -li "${@}"

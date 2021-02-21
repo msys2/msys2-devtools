@@ -1,0 +1,39 @@
+#!/bin/bash
+
+pub=/srv/msys2repo
+staging=/home/repo/staging
+
+update_packages() {
+    local repo="${1}"
+    shift
+    local path="${1}"
+    shift
+
+    local pkgs=("${@}")
+
+    if [ "${#pkgs[@]}" -gt 0 ]
+    then
+        echo "==> ${path}"
+        cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
+        repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}" || exit 1
+#        chmod 0640 "${staging}/${path}"/*
+        mv "${staging}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${pub}/${path}/"
+
+        echo
+    fi
+}
+
+repo="${1}"
+shift
+if [ "${repo}" = "mingw64" ]
+then
+    update_packages mingw64 "mingw/x86_64" "${@}"
+elif [ "${repo}" = "mingw32" ]
+then
+    update_packages mingw32 "mingw/i686" "${@}"
+elif [ "${repo}" = "msys" ]
+then
+    update_packages msys "msys/x86_64" "${@}"
+else
+    echo "Missing or unrecognized first argument: msys|mingw32|mingw64" >&2
+fi
