@@ -10,6 +10,7 @@ Tools for MSYS2 package maintainers
 git -C msys2-autobuild/ pull
 git -C msys2-devtools/ pull
 git -C msys2-main-server/ pull
+export GPGKEY=<signing-key-fingerprint>
 ```
 
 You need a GPG agent extra socket to sign the packages and databases.
