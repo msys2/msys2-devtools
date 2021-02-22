@@ -3,14 +3,19 @@
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
-gpg --detach-sign "${0}" || exit 1
+SIGNWITHKEY=()
+if [[ -n $GPGKEY ]]; then
+    SIGNWITHKEY=(-u "${GPGKEY}")
+fi
+
+gpg --detach-sign "${SIGNWITHKEY[@]}" "${0}" || exit 1
 rm "${0}.sig"
 
 (
     shopt -s nullglob
     for f in "${staging}"/*/*/*.{pkg,src}.tar.{gz,xz,zst}
     do
-        test -f $f.sig || gpg --detach-sign $f || exit 1
+        test -f "$f.sig" || gpg --detach-sign "${SIGNWITHKEY[@]}" "$f" || exit 1
     done
 )
 
