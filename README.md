@@ -66,7 +66,7 @@ done
 ## Link latest installer
 
 ```bash
-cd /srv/msys2repo/
+cd /srv/msys2repo/distrib/
 ln -sf x86_64/$(ls x86_64/ -t | grep '.tar.xz$' | head -1) msys2-x86_64-latest.tar.xz
 ln -sf x86_64/$(ls x86_64/ -t | grep '.tar.xz.sig$' | head -1) msys2-x86_64-latest.tar.xz.sig
 ln -sf x86_64/$(ls x86_64/ -t | grep '.exe$' | head -1) msys2-x86_64-latest.exe
