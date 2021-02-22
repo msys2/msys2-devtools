@@ -9,10 +9,19 @@ Tools for MSYS2 package maintainers
 ./msys2-dbssh
 git -C msys2-autobuild/ pull
 git -C msys2-devtools/ pull
-git -C msys2-repo-server/ pull
+git -C msys2-main-server/ pull
 ```
 
 You need a GPG agent extra socket to sign the packages and databases.
+
+
+## Update services in containers
+
+```
+cd msys2-main-server
+sudo docker-compose stop
+sudo docker-compose up -d
+```
 
 
 ## Update databases from CI
