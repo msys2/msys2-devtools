@@ -1,0 +1,27 @@
+- name: setup
+  hosts: all
+  remote_user: root
+  tasks:
+
+    - name: Install packages
+      apt:
+        pkg:
+          - docker-compose
+          - docker.io
+          - git
+          - gnupg
+          - man
+          - mc
+          - python3-pip
+          - rsync
+          - tree
+        update_cache: yes
+
+    - name: Ensure a locale exists
+      locale_gen:
+        name: en_US.UTF-8
+        state: present
+
+    - name: Set timezone
+      timezone:
+        name: Europe/Prague
