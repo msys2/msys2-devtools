@@ -19,7 +19,12 @@ You need a GPG agent extra socket to sign the packages and databases.
 ## Update services in containers
 
 ```sh
-sudo docker-compose up -d --build --project-directory msys2-main-server
+# Pull new base images and re-build things
+sudo docker-compose build --pull --project-directory msys2-main-server
+# Restart changed services
+sudo docker-compose up -d --project-directory msys2-main-server
+# Clean up old things (optional)
+sudo docker system prune --all --force
 ```
 
 
