@@ -65,18 +65,5 @@ done
 ## Update installer
 
 ```sh
-cd /srv/msys2repo/distrib/x86_64/
-RELEASE=YYYY-MM-DD
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-base-x86_64-${RELEASE//-/}.tar.xz"
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-base-x86_64-${RELEASE//-/}.tar.xz.sig"
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-x86_64-${RELEASE//-/}.exe"
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-x86_64-${RELEASE//-/}.exe.sig"
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-base-x86_64-${RELEASE//-/}.sfx.exe"
-curl -sLO "https://github.com/msys2/msys2-installer/releases/download/${RELEASE}/msys2-base-x86_64-${RELEASE//-/}.sfx.exe.sig"
-ln -sf x86_64/$(ls -t | grep '.tar.xz$' | head -1) ../msys2-x86_64-latest.tar.xz
-ln -sf x86_64/$(ls -t | grep '.tar.xz.sig$' | head -1) ../msys2-x86_64-latest.tar.xz.sig
-ln -sf x86_64/$(ls -t | grep '.exe$' | grep -v '.sfx.exe$' | head -1) ../msys2-x86_64-latest.exe
-ln -sf x86_64/$(ls -t | grep '.exe.sig$' | grep -v '.sfx.exe.sig$' | head -1) ../msys2-x86_64-latest.exe.sig
-ln -sf x86_64/$(ls -t | grep '.sfx.exe$' | head -1) ../msys2-x86_64-latest.sfx.exe
-ln -sf x86_64/$(ls -t | grep '.sfx.exe.sig$' | head -1) ../msys2-x86_64-latest.sfx.exe.sig
+./update-installer 2021-02-28
 ```
