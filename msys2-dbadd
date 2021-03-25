@@ -68,5 +68,6 @@ update_sources msys
 
 update_packages mingw64 "mingw/x86_64" "mingw/sources"
 update_packages mingw32 "mingw/i686"   "mingw/sources"
+update_packages ucrt64  "mingw/ucrt64" "mingw/sources"
 update_packages msys    "msys/x86_64"  "msys/sources"
 update_packages msys    "msys/i686"    "msys/sources"

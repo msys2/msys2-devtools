@@ -31,6 +31,9 @@ then
 elif [ "${repo}" = "mingw32" ]
 then
     update_packages mingw32 "mingw/i686" "${@}"
+elif [ "${repo}" = "ucrt64" ]
+then
+    update_packages ucrt64 "mingw/ucrt64" "${@}"
 elif [ "${repo}" = "msys" ]
 then
     update_packages msys "msys/x86_64" "${@}"
