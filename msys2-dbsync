@@ -24,6 +24,9 @@ rsync -rti --exclude 'mingw64.db*' --exclude 'mingw64.files*' $pub/mingw/x86_64/
 echo "mingw/i686 packages"
 rsync -rti --exclude 'mingw32.db*' --exclude 'mingw32.files*' $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
 
+echo "mingw/ucrt64 packages"
+rsync -rti --exclude 'ucrt64.db*' --exclude 'ucrt64.files*' $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
+
 echo "msys/x86_64 packages"
 rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
 
@@ -38,6 +41,9 @@ rsync -rtiL --delete $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
 
 echo "mingw/i686 database"
 rsync -rtiL --delete $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
+
+echo "mingw/ucrt64 database"
+rsync -rtiL --delete $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
 
 echo "msys/x86_64 database"
 rsync -rtiL --delete $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
