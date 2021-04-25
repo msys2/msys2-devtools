@@ -32,6 +32,9 @@ rsync -rti --exclude 'ucrt64.db*' --exclude 'ucrt64.files*' $pub/mingw/ucrt64/ $
 echo "mingw/clang64 packages"
 rsync -rti --exclude 'clang64.db*' --exclude 'clang64.files*' $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
 
+echo "mingw/clang32 packages"
+rsync -rti --exclude 'clang32.db*' --exclude 'clang32.files*' $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
+
 echo "msys/x86_64 packages"
 rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
 
@@ -52,6 +55,9 @@ rsync -rtiL --delete $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
 
 echo "mingw/clang64 database"
 rsync -rtiL --delete $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
+
+echo "mingw/clang32 database"
+rsync -rtiL --delete $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
 
 echo "msys/x86_64 database"
 rsync -rtiL --delete $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/

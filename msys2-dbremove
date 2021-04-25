@@ -37,6 +37,9 @@ then
 elif [ "${repo}" = "clang64" ]
 then
     update_packages clang64 "mingw/clang64" "${@}"
+elif [ "${repo}" = "clang32" ]
+then
+    update_packages clang32 "mingw/clang32" "${@}"
 elif [ "${repo}" = "msys" ]
 then
     update_packages msys "msys/x86_64" "${@}"
