@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
@@ -15,10 +17,8 @@ update_packages() {
     then
         echo "==> ${path}"
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
-        repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}" || exit 1
-#        chmod 0640 "${staging}/${path}"/*
+        repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}"
         mv "${staging}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${pub}/${path}/"
-
         echo
     fi
 }

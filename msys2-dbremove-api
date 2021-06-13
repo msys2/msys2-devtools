@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import requests
+import argparse
+import subprocess
+import shutil
+
+
+DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def remove_all(args):
+    r = requests.get("https://packages.msys2.org/api/removals")
+    r.raise_for_status()
+    to_remove = []
+
+    for entry in r.json():
+        repo = entry["repo"]
+        name = entry["name"]
+        to_remove.append((repo, name))
+
+    for repo, name in to_remove:
+        print(f"Removing '{name}' from '{repo}'")
+
+    choice = input("OK to remove? [Y/n] ")
+    if choice.upper() != "Y":
+        print("Aborting")
+        return
+
+    for repo, name in to_remove:
+        subprocess.check_call([
+            shutil.which("bash"), os.path.join(DIR, "msys2-dbremove"), repo, name])
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(description="Remove packages", allow_abbrev=False)
+    args = parser.parse_args(argv[1:])
+    remove_all(args)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
