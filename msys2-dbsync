@@ -8,67 +8,65 @@ then
     exit 1
 fi
 
-echo -n "Sourceforge password for '${1}':"
-read -s password
 pub=/srv/msys2repo
 sf="${1}@frs.sourceforge.net:/home/frs/project/msys2"
 
 echo "distrib"
-sshpass -p "$password" rsync -rti --delete $pub/distrib/ $sf/Base/
+rsync -rti --delete $pub/distrib/ $sf/Base/
 
 echo "mingw/sources"
-sshpass -p "$password" rsync -rti --delete $pub/mingw/sources/ $sf/REPOS/MINGW/Sources/
+rsync -rti --delete $pub/mingw/sources/ $sf/REPOS/MINGW/Sources/
 
 echo "msys/sources"
-sshpass -p "$password" rsync -rti --delete $pub/msys/sources/ $sf/REPOS/MSYS2/Sources/
+rsync -rti --delete $pub/msys/sources/ $sf/REPOS/MSYS2/Sources/
 
 echo "mingw/x86_64 packages"
-sshpass -p "$password" rsync -rti --exclude 'mingw64.db*' --exclude 'mingw64.files*' $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
+rsync -rti --exclude 'mingw64.db*' --exclude 'mingw64.files*' $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
 
 echo "mingw/i686 packages"
-sshpass -p "$password" rsync -rti --exclude 'mingw32.db*' --exclude 'mingw32.files*' $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
+rsync -rti --exclude 'mingw32.db*' --exclude 'mingw32.files*' $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
 
 echo "mingw/ucrt64 packages"
-sshpass -p "$password" rsync -rti --exclude 'ucrt64.db*' --exclude 'ucrt64.files*' $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
+rsync -rti --exclude 'ucrt64.db*' --exclude 'ucrt64.files*' $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
 
 echo "mingw/clang64 packages"
-sshpass -p "$password" rsync -rti --exclude 'clang64.db*' --exclude 'clang64.files*' $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
+rsync -rti --exclude 'clang64.db*' --exclude 'clang64.files*' $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
 
 echo "mingw/clang32 packages"
-sshpass -p "$password" rsync -rti --exclude 'clang32.db*' --exclude 'clang32.files*' $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
+rsync -rti --exclude 'clang32.db*' --exclude 'clang32.files*' $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
 
 echo "mingw/clangarm64 packages"
-sshpass -p "$password" rsync -rti --exclude 'clangarm64.db*' --exclude 'clangarm64.files*' $pub/mingw/clangarm64/ $sf/REPOS/MINGW/clangarm64/
+rsync -rti --exclude 'clangarm64.db*' --exclude 'clangarm64.files*' $pub/mingw/clangarm64/ $sf/REPOS/MINGW/clangarm64/
 
 echo "msys/x86_64 packages"
-sshpass -p "$password" rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
+rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
 
 echo "msys/i686 packages"
-sshpass -p "$password" rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/i686/ $sf/REPOS/MSYS2/i686/
+rsync -rti --exclude 'msys.db*' --exclude 'msys.files*' $pub/msys/i686/ $sf/REPOS/MSYS2/i686/
 
 echo "Waiting 30 minutes before syncing databases"
 sleep 30m
 
 echo "mingw/x86_64 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
+rsync -rtiL --delete $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
 
 echo "mingw/i686 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
+rsync -rtiL --delete $pub/mingw/i686/ $sf/REPOS/MINGW/i686/
 
 echo "mingw/ucrt64 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
+rsync -rtiL --delete $pub/mingw/ucrt64/ $sf/REPOS/MINGW/ucrt64/
 
 echo "mingw/clang64 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
+rsync -rtiL --delete $pub/mingw/clang64/ $sf/REPOS/MINGW/clang64/
 
 echo "mingw/clang32 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
+rsync -rtiL --delete $pub/mingw/clang32/ $sf/REPOS/MINGW/clang32/
 
 echo "mingw/clangarm64 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/mingw/clangarm64/ $sf/REPOS/MINGW/clangarm64/
+rsync -rtiL --delete $pub/mingw/clangarm64/ $sf/REPOS/MINGW/clangarm64/
 
 echo "msys/x86_64 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
+rsync -rtiL --delete $pub/msys/x86_64/ $sf/REPOS/MSYS2/x86_64/
 
 echo "msys/i686 database"
-sshpass -p "$password" rsync -rtiL --delete $pub/msys/i686/ $sf/REPOS/MSYS2/i686/
+rsync -rtiL --delete $pub/msys/i686/ $sf/REPOS/MSYS2/i686/
