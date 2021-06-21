@@ -8,6 +8,12 @@ then
     exit 1
 fi
 
+if [[ "$(hostname)" == "msys2" ]] && [[ -z "${SSH_AUTH_SOCK}" ]]; then
+    echo "This needs SSH agent forwarding enabled..."
+    echo "https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding"
+    exit 1
+fi
+
 pub=/srv/msys2repo
 sf="${1}@frs.sourceforge.net:/home/frs/project/msys2"
 
