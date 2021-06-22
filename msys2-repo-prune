@@ -118,6 +118,10 @@ def get_files_to_prune(target_dir, time_delta):
                 ext = e.rsplit("-", 1)[-1].split(".", 1)[-1]
                 # normalize different compression types
                 ext = ext.replace(".xz", "").replace(".zst", "").replace(".gz", "")
+                if ext.startswith("src."):
+                    name = e.rsplit("-", 2)[0]
+                else:
+                    name = e.rsplit("-", 3)[0]
                 groups.setdefault((name, ext), []).append(e)
             return list(groups.values())
 
