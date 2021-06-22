@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import fnmatch
@@ -15,6 +17,8 @@ def get_safe_patterns_for_db(db_path):
     safe_patterns = {
         "*.db.*",
         "*.files.*",
+        "*.db",
+        "*.files",
     }
 
     with tarfile.open(db_path, mode='r:gz') as tar:
@@ -55,7 +59,7 @@ def find_dbs(target_dir):
     target_dir = os.path.realpath(target_dir)
     for root, dirs, files in os.walk(target_dir):
         for name in files:
-            if fnmatch.fnmatch(name, '*.db.*') and not fnmatch.fnmatch(name, '*.sig'):
+            if fnmatch.fnmatch(name, '*.db'):
                 db_paths.add(os.path.join(root, name))
 
     return db_paths
@@ -98,28 +102,59 @@ def get_files_to_prune(target_dir, time_delta):
     log("Searching...")
     ref_mtime = datetime.fromtimestamp(newest_mtime)
     paths_to_delete = set()
-    for prune_dir, safe_patterns in prune_mapping.items():
-        paths_too_old = set()
-        for name in os.listdir(prune_dir):
-            path = os.path.join(prune_dir, name)
-            dt = datetime.fromtimestamp(os.path.getmtime(path))
-            # We compare it against the DB mtime to get something reproducible
-            if dt <= ref_mtime and ref_mtime - dt > time_delta:
-                paths_too_old.add(path)
+    for prune_dir, safe_patterns in sorted(prune_mapping.items()):
 
-        basenames_too_old = set()
-        for path in paths_too_old:
-            basenames_too_old.add(os.path.basename(path))
+        def get_entries_not_to_delete(entries):
+            not_to_delete = set()
+            for pattern in sorted(safe_patterns):
+                not_to_delete.update(
+                    fnmatch.filter(entries, pattern))
+            return not_to_delete
 
-        basenames_not_to_delete = set()
-        for pattern in safe_patterns:
-            basenames_not_to_delete.update(
-                fnmatch.filter(basenames_too_old, pattern))
+        def group_by_package_name_and_ext(entries):
+            groups = {}
+            for e in entries:
+                name = e.rsplit("-", 3)[0]
+                ext = e.rsplit("-", 1)[-1].split(".", 1)[-1]
+                # normalize different compression types
+                ext = ext.replace(".xz", "").replace(".zst", "").replace(".gz", "")
+                groups.setdefault((name, ext), []).append(e)
+            return list(groups.values())
 
-        for path in paths_too_old:
-            basename = os.path.basename(path)
-            if basename not in basenames_not_to_delete:
-                paths_to_delete.add(path)
+        def get_timestamp(entry):
+            path = os.path.join(prune_dir, entry)
+            return datetime.fromtimestamp(os.path.getmtime(path))
+
+        def is_too_old(entry, factor=1):
+            dt = get_timestamp(entry)
+            return dt <= ref_mtime and ref_mtime - dt > time_delta * factor
+
+        def group_get_paths_too_old(group, not_to_delete):
+            # For every group we keep one package that is older than the cut-off point
+            # so that at the cut-off point all packages of the DB synced at the time still exist
+            group.sort(key=get_timestamp)
+            maybe_too_old = set()
+            for i, e in enumerate(group):
+                if not is_too_old(e):
+                    maybe_too_old.update(group[:max(0, i-1)])
+                    break
+            else:
+                # XXX: In case a package got removed from the DB and all are too old we might still
+                # want to keep the last one since it might have been in the DB back then.
+                # We can't be sure though, so just keek it if it's not older than 4 * time_delta
+                if is_too_old(group[-1], 4):
+                    maybe_too_old.update(group)
+                else:
+                    maybe_too_old.update(group[:-1])
+            return [os.path.join(prune_dir, e) for e in maybe_too_old if e not in not_to_delete]
+
+        # we group package by type and name and keep only one package per group around
+        # that is older than the prune date
+        entries = sorted(os.listdir(prune_dir))
+        not_to_delete = get_entries_not_to_delete(entries)
+
+        for group in group_by_package_name_and_ext(entries):
+            paths_to_delete.update(group_get_paths_too_old(group, not_to_delete))
 
     return paths_to_delete
 
@@ -128,7 +163,7 @@ def main(argv):
     parser = argparse.ArgumentParser(
         description="List old packages to prune", allow_abbrev=False)
     parser.add_argument("root", help="path to root dir")
-    parser.add_argument("--days", default=365, type=int,
+    parser.add_argument("--days", default=365 * 1.5, type=int,
                         help="days after which a package can be pruned")
 
     args = parser.parse_args(argv[1:])
@@ -137,8 +172,11 @@ def main(argv):
     paths = get_files_to_prune(args.root, time_delta)
     log(f"Found {len(paths)} files to prune")
 
+    size = 0
     for path in sorted(paths):
+        size += os.path.getsize(path)
         print(path)
+    log(f"Removing would save {size / 1024 ** 3: .3f} GB")
 
 
 if __name__ == '__main__':
