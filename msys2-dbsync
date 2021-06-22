@@ -8,9 +8,10 @@ then
     exit 1
 fi
 
-if [[ "$(hostname)" == "msys2" ]] && [[ -z "${SSH_AUTH_SOCK}" ]]; then
-    echo "This needs SSH agent forwarding enabled..."
-    echo "https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding"
+if [[ "$(hostname)" == "msys2" ]] && [[ -z "${SSH_AUTH_SOCK}" ]]
+then
+    echo "This needs SSH agent forwarding enabled..." >&2
+    echo "https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding" >&2
     exit 1
 fi
 
