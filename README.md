@@ -42,10 +42,7 @@ msys2-devtools/msys2-dbadd
 Remove old packages:
 
 ```sh
-msys2-devtools/msys2-dbremove msys foo-git
-msys2-devtools/msys2-dbremove mingw32 mingw-w64-i686-foo-git
-msys2-devtools/msys2-dbremove mingw64 mingw-w64-x86_64-foo-git
-msys2-devtools/msys2-dbremove ucrt64 mingw-w64-ucrt-x86_64-foo-git
+msys2-devtools/msys2-dbremove-api
 ```
 
 Sync to SourceForge:
