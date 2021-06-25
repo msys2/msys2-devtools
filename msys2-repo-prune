@@ -169,6 +169,8 @@ def main(argv):
     parser.add_argument("root", help="path to root dir")
     parser.add_argument("--days", default=365 * 1.5, type=int,
                         help="days after which a package can be pruned")
+    parser.add_argument(
+        "--delete", action="store_true", help="delete the selected files")
 
     args = parser.parse_args(argv[1:])
     log(f"Pruning unused files older than {args.days} days")
@@ -179,8 +181,12 @@ def main(argv):
     size = 0
     for path in sorted(paths):
         size += os.path.getsize(path)
-        print(path)
-    log(f"Removing would save {size / 1024 ** 3: .3f} GB")
+        log(str(datetime.fromtimestamp(os.path.getmtime(path))).split()[0], path)
+        if args.delete:
+            os.remove(path)
+    log(f"Removing saves/saved {size / 1024 ** 3: .3f} GB")
+    if not args.delete:
+        log("Run again with --delete to delete the files")
 
 
 if __name__ == '__main__':
