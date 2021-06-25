@@ -52,19 +52,6 @@ msys2-devtools/msys2-dbsync SF_USERNAME
 ```
 
 
-## Fix pacman symlinks
-
-```sh
-echo $'mingw/x86_64 mingw64 \n mingw/i686 mingw32 \n msys/x86_64 msys \n msys/i686 msys' | while read path db; do
-  for type in db files; do
-    for suffix in "" .sig; do
-      ( cd /srv/msys2repo/$path/ && test ! -L $db.$type$suffix && diff $db.$type{,.tar.gz}$suffix && ln -sf $db.$type{.tar.gz,}$suffix )
-    done
-  done
-done
-```
-
-
 ## Update installer
 
 ```sh
