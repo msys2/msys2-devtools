@@ -55,5 +55,5 @@ msys2-devtools/msys2-dbsync SF_USERNAME
 ## Update installer
 
 ```sh
-./update-installer 2021-02-28
+msys2-devtools/update-installer 2021-02-28
 ```
