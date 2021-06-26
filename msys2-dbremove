@@ -5,6 +5,15 @@ set -e
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
+SIGNWITHKEY=()
+if [ -n "${GPGKEY}" ]
+then
+    SIGNWITHKEY=(-u "${GPGKEY}")
+    gpg --recv-key "0x${GPGKEY}"
+fi
+gpg --detach-sign "${SIGNWITHKEY[@]}" "${0}"
+rm "${0}.sig"
+
 update_packages() {
     local repo="${1}"
     shift
