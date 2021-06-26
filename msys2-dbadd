@@ -4,10 +4,11 @@ pub=/srv/msys2repo
 staging=/home/repo/staging
 
 SIGNWITHKEY=()
-if [[ -n $GPGKEY ]]; then
+if [ -n "${GPGKEY}" ]
+then
     SIGNWITHKEY=(-u "${GPGKEY}")
+    gpg --recv-key "0x${GPGKEY}"
 fi
-
 gpg --detach-sign "${SIGNWITHKEY[@]}" "${0}" || exit 1
 rm "${0}.sig"
 
