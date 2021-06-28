@@ -27,6 +27,8 @@ update_packages() {
         echo "==> ${path}"
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
         repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}"
+        gpg --verify "${staging}/${path}/${repo}.db.tar.gz.sig" "${staging}/${path}/${repo}.db.tar.gz"
+        gpg --verify "${staging}/${path}/${repo}.files.tar.gz.sig" "${staging}/${path}/${repo}.files.tar.gz"
         mv "${staging}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${pub}/${path}/"
         echo
     fi

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
@@ -9,14 +11,14 @@ then
     SIGNWITHKEY=(-u "${GPGKEY}")
     gpg --recv-key "0x${GPGKEY}"
 fi
-gpg --detach-sign "${SIGNWITHKEY[@]}" "${0}" || exit 1
+gpg --detach-sign "${SIGNWITHKEY[@]}" "${0}"
 rm "${0}.sig"
 
 (
     shopt -s nullglob
     for f in "${staging}"/*/*/*.{pkg,src}.tar.{gz,xz,zst}
     do
-        test -f "$f.sig" || gpg --detach-sign "${SIGNWITHKEY[@]}" "$f" || exit 1
+        test -f "$f.sig" || gpg --detach-sign "${SIGNWITHKEY[@]}" "$f"
     done
 )
 
@@ -32,23 +34,29 @@ update_packages() {
     if [ "${#files[@]}" -gt 0 ]
     then
         echo "==> ${path}"
+
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
-        repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.gz" "${files[@]}" || exit 1
-#        chmod 0640 "${staging}/${path}"/*
+        repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.gz" "${files[@]}"
+        gpg --verify "${staging}/${path}/${repo}.db.tar.gz.sig" "${staging}/${path}/${repo}.db.tar.gz"
+        gpg --verify "${staging}/${path}/${repo}.files.tar.gz.sig" "${staging}/${path}/${repo}.files.tar.gz"
         mv "${staging}/${path}"/* "${pub}/${path}/"
 
+        # check packages
         inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.gz" "*/desc" | grep -A 1 %FILENAME% | sed -e '/^%FILENAME%$/d' -e '/^--$/d' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort)"
         infs="$(find "${pub}/${path}" -name "*.pkg.tar.*" -printf '%f\n' | sort)"
         for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infs}"))
         do
             echo "==> WARNING: '${f}' is missing."
         done
+
+        # check sources
         inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.gz" "*/desc" | grep -A 4 -e %BASE% | awk '/^%BASE%$/ { getline; printf "%s-", $0; getline; getline; getline; printf "%s.src.tar.gz\n", $0 }' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort | uniq)"
         infs="$(find "${pub}/${srcpath}" -name "*.src.tar.*" -printf '%f\n' | sort)"
         for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infs}"))
         do
             echo "==> WARNING: '${f}' is missing."
         done
+
         echo
     fi
 }
