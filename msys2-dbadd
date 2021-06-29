@@ -83,3 +83,5 @@ update_packages clang32 "mingw/clang32" "mingw/sources"
 update_packages clangarm64 "mingw/clangarm64" "mingw/sources"
 update_packages msys    "msys/x86_64"   "msys/sources"
 update_packages msys    "msys/i686"     "msys/sources"
+
+date +%s > "${pub}/lastupdate"

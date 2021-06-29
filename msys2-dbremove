@@ -60,3 +60,5 @@ then
 else
     echo "Missing or unrecognized first argument: msys|mingw32|mingw64|ucrt64|clang64|clang32|clangarm64" >&2
 fi
+
+date +%s > "${pub}/lastupdate"
