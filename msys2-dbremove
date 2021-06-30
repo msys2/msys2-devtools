@@ -59,6 +59,7 @@ then
     update_packages msys "msys/x86_64" "${@}"
 else
     echo "Missing or unrecognized first argument: msys|mingw32|mingw64|ucrt64|clang64|clang32|clangarm64" >&2
+    exit 1
 fi
 
 date +%s > "${pub}/lastupdate"
