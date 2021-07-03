@@ -22,10 +22,10 @@ echo "distrib"
 rsync -rti --delete $pub/distrib/ $sf/Base/
 
 echo "mingw/sources"
-rsync -rti --delete $pub/mingw/sources/ $sf/REPOS/MINGW/Sources/
+rsync -rti --delete $pub/mingw/sources/ $sf/REPOS/MINGW/sources/
 
 echo "msys/sources"
-rsync -rti --delete $pub/msys/sources/ $sf/REPOS/MSYS2/Sources/
+rsync -rti --delete $pub/msys/sources/ $sf/REPOS/MSYS2/sources/
 
 echo "mingw/x86_64 packages"
 rsync -rti --exclude 'mingw64.db*' --exclude 'mingw64.files*' $pub/mingw/x86_64/ $sf/REPOS/MINGW/x86_64/
