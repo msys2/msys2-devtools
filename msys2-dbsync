@@ -23,16 +23,16 @@ rsync -rti $pub/distrib/ $sf/Base/
 rsync -rti --links --delete-after $pub/distrib/ $sf/Base/
 
 echo "mingw packages"
-rsync -rtiL --exclude '*.db*' --exclude '*.files*' $pub/mingw/ $sf/REPOS/MINGW/
+rsync -rtiL --exclude "sources" --exclude '*.db*' --exclude '*.files*' $pub/mingw/ $sf/REPOS/MINGW/
 
 echo "msys packages"
-rsync -rtiL --exclude '*.db*' --exclude '*.files*' $pub/msys/ $sf/REPOS/MSYS2/
+rsync -rtiL --exclude "sources" --exclude '*.db*' --exclude '*.files*' $pub/msys/ $sf/REPOS/MSYS2/
 
 echo "Waiting 30 minutes before syncing databases"
 sleep 30m
 
 echo "mingw databases"
-rsync -rtiL --delete $pub/mingw/ $sf/REPOS/MINGW/
+rsync -rtiL --exclude "sources" --delete $pub/mingw/ $sf/REPOS/MINGW/
 
 echo "msys databases"
-rsync -rtiL --delete $pub/msys/ $sf/REPOS/MSYS2/
+rsync -rtiL --exclude "sources" --delete $pub/msys/ $sf/REPOS/MSYS2/
