@@ -25,6 +25,7 @@ update_packages() {
     if [ "${#pkgs[@]}" -gt 0 ]
     then
         echo "==> ${path}"
+        mkdir -p "${staging}/${path}/"
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
         repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}"
         gpg --verify "${staging}/${path}/${repo}.db.tar.gz.sig" "${staging}/${path}/${repo}.db.tar.gz"
