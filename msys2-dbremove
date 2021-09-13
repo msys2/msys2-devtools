@@ -39,10 +39,10 @@ repo="${1}"
 shift
 if [ "${repo}" = "mingw64" ]
 then
-    update_packages mingw64 "mingw/x86_64" "${@}"
+    update_packages mingw64 "mingw/mingw64" "${@}"
 elif [ "${repo}" = "mingw32" ]
 then
-    update_packages mingw32 "mingw/i686" "${@}"
+    update_packages mingw32 "mingw/mingw32" "${@}"
 elif [ "${repo}" = "ucrt64" ]
 then
     update_packages ucrt64 "mingw/ucrt64" "${@}"

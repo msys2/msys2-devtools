@@ -75,8 +75,8 @@ update_sources() {
 update_sources mingw
 update_sources msys
 
-update_packages mingw64 "mingw/x86_64"  "mingw/sources"
-update_packages mingw32 "mingw/i686"    "mingw/sources"
+update_packages mingw64 "mingw/mingw64"  "mingw/sources"
+update_packages mingw32 "mingw/mingw32"    "mingw/sources"
 update_packages ucrt64  "mingw/ucrt64"  "mingw/sources"
 update_packages clang64 "mingw/clang64" "mingw/sources"
 update_packages clang32 "mingw/clang32" "mingw/sources"
