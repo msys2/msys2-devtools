@@ -2,6 +2,9 @@
 
 set -e
 
+export ZSTD_CLEVEL=19
+export ZSTD_NBTHREADS="$(nproc)"
+
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
@@ -35,14 +38,14 @@ update_packages() {
     then
         echo "==> ${path}"
 
-        cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
-        repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.gz" "${files[@]}"
-        gpg --verify "${staging}/${path}/${repo}.db.tar.gz.sig" "${staging}/${path}/${repo}.db.tar.gz"
-        gpg --verify "${staging}/${path}/${repo}.files.tar.gz.sig" "${staging}/${path}/${repo}.files.tar.gz"
+        cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
+        repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
+        gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
+        gpg --verify "${staging}/${path}/${repo}.files.tar.zst.sig" "${staging}/${path}/${repo}.files.tar.zst"
         mv "${staging}/${path}"/* "${pub}/${path}/"
 
         # check packages
-        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.gz" "*/desc" | grep -A 1 %FILENAME% | sed -e '/^%FILENAME%$/d' -e '/^--$/d' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort)"
+        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.zst" "*/desc" | grep -A 1 %FILENAME% | sed -e '/^%FILENAME%$/d' -e '/^--$/d' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort)"
         infs="$(find "${pub}/${path}" -name "*.pkg.tar.*" -printf '%f\n' | sort)"
         for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infs}"))
         do
@@ -50,7 +53,7 @@ update_packages() {
         done
 
         # check sources
-        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.gz" "*/desc" | grep -A 4 -e %BASE% | awk '/^%BASE%$/ { getline; printf "%s-", $0; getline; getline; getline; printf "%s.src.tar.gz\n", $0 }' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort | uniq)"
+        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.zst" "*/desc" | grep -A 4 -e %BASE% | awk '/^%BASE%$/ { getline; printf "%s-", $0; getline; getline; getline; printf "%s.src.tar.gz\n", $0 }' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort | uniq)"
         infs="$(find "${pub}/${srcpath}" -name "*.src.tar.*" -printf '%f\n' | sort)"
         for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infs}"))
         do

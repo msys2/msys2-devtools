@@ -2,6 +2,9 @@
 
 set -e
 
+export ZSTD_CLEVEL=19
+export ZSTD_NBTHREADS="$(nproc)"
+
 pub=/srv/msys2repo
 staging=/home/repo/staging
 
@@ -26,11 +29,11 @@ update_packages() {
     then
         echo "==> ${path}"
         mkdir -p "${staging}/${path}/"
-        cp "${pub}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${staging}/${path}/"
-        repo-remove -s -v "${staging}/${path}/${repo}.db.tar.gz" "${pkgs[@]}"
-        gpg --verify "${staging}/${path}/${repo}.db.tar.gz.sig" "${staging}/${path}/${repo}.db.tar.gz"
-        gpg --verify "${staging}/${path}/${repo}.files.tar.gz.sig" "${staging}/${path}/${repo}.files.tar.gz"
-        mv "${staging}/${path}/${repo}".{db,files}{,.tar.gz}{,.sig} "${pub}/${path}/"
+        cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
+        repo-remove -s -v "${staging}/${path}/${repo}.db.tar.zst" "${pkgs[@]}"
+        gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
+        gpg --verify "${staging}/${path}/${repo}.files.tar.zst.sig" "${staging}/${path}/${repo}.files.tar.zst"
+        mv "${staging}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${pub}/${path}/"
         echo
     fi
 }
