@@ -1,11 +1,40 @@
 #!/usr/bin/env python3
 
 import os
+import io
 import sys
 import fnmatch
 import tarfile
 import argparse
 from datetime import datetime, timedelta
+
+import zstandard
+
+
+class ExtTarFile(tarfile.TarFile):
+    """Extends TarFile to support zstandard"""
+
+    @classmethod
+    def zstdopen(cls, name, mode="r", fileobj=None, cctx=None, dctx=None, **kwargs):  # type: ignore
+        """Open zstd compressed tar archive name for reading or writing.
+           Appending is not allowed.
+        """
+        if mode not in ("r"):
+            raise ValueError("mode must be 'r'")
+
+        try:
+            zobj = zstandard.open(fileobj or name, mode + "b", cctx=cctx, dctx=dctx)
+            with zobj:
+                data = zobj.read()
+        except (zstandard.ZstdError, EOFError) as e:
+            raise tarfile.ReadError("not a zstd file") from e
+
+        fileobj = io.BytesIO(data)
+        t = cls.taropen(name, mode, fileobj, **kwargs)
+        t._extfileobj = False
+        return t
+
+    OPEN_METH = {"zstd": "zstdopen", **tarfile.TarFile.OPEN_METH}
 
 
 def get_safe_patterns_for_db(db_path):
@@ -21,7 +50,7 @@ def get_safe_patterns_for_db(db_path):
         "*.files",
     }
 
-    with tarfile.open(db_path, mode='r:gz') as tar:
+    with ExtTarFile.open(db_path, mode='r') as tar:
         for info in tar.getmembers():
             file_name = info.name.rsplit("/", 1)[-1]
             if file_name == "desc":
