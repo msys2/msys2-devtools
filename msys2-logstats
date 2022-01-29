@@ -224,8 +224,8 @@ def main(argv):
                     return name
             return ""
 
-        for entries in grouped.values():
-            ip = entries[0].ClientHost
+        for group_entries in grouped.values():
+            ip = group_entries[0].ClientHost
             ip_to_ci[ip] = get_ip_to_ci(ip)
 
     clients: List[ClientInfo] = []
