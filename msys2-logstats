@@ -243,7 +243,12 @@ def main(argv):
             ci_systems.update([ui.ci])
 
     # Log info
-    print(tabulate([["Start", first], ["End", last], ["Requests", requests], ["Clients", len(clients)]]))
+    print(tabulate([
+        ["Start", first],
+        ["End", last],
+        ["Requests", requests],
+        ["Clients", f"{len(clients)} (Clients are grouped by IP+WinVer+Arch, which is far from perfect)"],
+    ]))
 
     # Repos
     table = []
