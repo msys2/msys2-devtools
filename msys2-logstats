@@ -162,7 +162,7 @@ def main(argv):
             decoded = json.loads(line)
             if "RequestHost" not in decoded or "request_User-Agent" not in decoded:
                 continue
-            entries.append(LogEntry(
+            entry = LogEntry(
                 decoded["ClientHost"],
                 decoded["DownstreamStatus"],
                 decoded["RequestHost"],
@@ -171,7 +171,14 @@ def main(argv):
                 decoded["RequestProtocol"],
                 decoded["request_User-Agent"],
                 decoded["time"],
-            ))
+            )
+            if entry.RequestHost not in ["repo.msys2.org", "mirror.msys2.org"]:
+                continue
+            if entry.RequestMethod != "GET":
+                continue
+            if not is_valid_user_agent(entry.UserAgent):
+                continue
+            entries.append(entry)
 
     def user_key(entry):
         # only take the system part of the UA, so we don't count
@@ -181,10 +188,6 @@ def main(argv):
 
     grouped = {}
     for entry in entries:
-        if entry.RequestHost not in ["repo.msys2.org", "mirror.msys2.org"] or entry.RequestMethod != "GET":
-            continue
-        if not is_valid_user_agent(entry.UserAgent):
-            continue
         key = user_key(entry)
         grouped.setdefault(key, []).append(entry)
 
