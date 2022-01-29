@@ -210,6 +210,7 @@ def main(argv):
         return ""
 
     repos = Counter()
+    ci_systems = Counter()
     users: List[UserInfo] = []
     for entries in grouped.values():
         user_agent = parse_user_agent(entries[0].UserAgent)
@@ -224,6 +225,7 @@ def main(argv):
         users.append(ui)
         for entry in entries:
             repos.update([(get_repo_for_path(entry.RequestPath), ui.ci)])
+            ci_systems.update([ui.ci])
 
     # Log info
     print(tabulate([["Start", first], ["End", last], ["Requests", requests], ["Users", len(users)]]))
@@ -235,6 +237,14 @@ def main(argv):
         table.append([repo, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
     print(tabulate(table, ["Repo", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
+
+    # CI Systems
+    table = []
+    for ci, count in ci_systems.most_common():
+        pcnt = count / requests * 100
+        table.append([ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["CI", "Percent", "Requests"], stralign="right", numalign="right"))
 
     # Windows versions
     table = []
