@@ -193,9 +193,15 @@ def main(argv):
     def get_repo_for_path(path: str) -> str:
         repo = path.rsplit("/", 1)[0].lstrip("/")
         if repo == "mingw/i686":
-            return "mingw/mingw32"
+            repo = "mingw/mingw32"
         elif repo == "mingw/x86_64":
-            return "mingw/mingw64"
+            repo = "mingw/mingw64"
+
+        if path.endswith(".db") or ".db." in path:
+            repo += "/db"
+        elif path.endswith(".files") or ".files." in path:
+            repo += "/db"
+
         return repo
 
     ci_networks = {}
