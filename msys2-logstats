@@ -4,7 +4,6 @@
 import json
 import re
 import sys
-import ipaddress
 import argparse
 from collections import Counter
 from typing import List, Tuple
@@ -12,6 +11,7 @@ from dataclasses import dataclass
 
 from tabulate import tabulate
 import requests
+from netaddr import IPSet, IPAddress
 
 
 @dataclass
@@ -108,39 +108,38 @@ def get_windows_edition(ua: UserAgent):
 
 
 def get_ci_networks():
-    gha = set()
     r = requests.get("https://api.github.com/meta")
     r.raise_for_status()
-    for nw in r.json()["actions"]:
-        gha.add(ipaddress.ip_network(nw))
+    gha = IPSet(r.json()["actions"])
 
-    appveyor = set()
     r = requests.get("https://www.appveyor.com/ips.json")
     r.raise_for_status()
-    for nw in r.json():
-        appveyor.add(ipaddress.ip_network(nw))
+    appveyor = IPSet(r.json())
 
-    gcp = set()
     r = requests.get("https://www.gstatic.com/ipranges/cloud.json")
     r.raise_for_status()
+    prefixes = set()
     for prefix in r.json()["prefixes"]:
-        gcp.add(ipaddress.ip_network(prefix.get("ipv4Prefix", prefix.get("ipv6Prefix"))))
+        prefixes.add(prefix.get("ipv4Prefix", prefix.get("ipv6Prefix")))
+    gcp = IPSet(prefixes)
 
-    aws = set()
     r = requests.get("https://ip-ranges.amazonaws.com/ip-ranges.json")
     r.raise_for_status()
+    prefixes = set()
     for prefix in r.json()["prefixes"]:
-        aws.add(ipaddress.ip_network(prefix["ip_prefix"]))
+        prefixes.add(prefix["ip_prefix"])
     for prefix in r.json()["ipv6_prefixes"]:
-        aws.add(ipaddress.ip_network(prefix["ipv6_prefix"]))
+        prefixes.add(prefix["ipv6_prefix"])
+    aws = IPSet(prefixes)
 
-    azure = set()
     r = requests.get(
         "https://download.microsoft.com/download/7/1/D/71D86715-5596-4529-9B13-DA13A5DE5B63/ServiceTags_Public_20220124.json")
     r.raise_for_status()
+    prefixes = set()
     for value in r.json()["values"]:
         for nw in value["properties"]["addressPrefixes"]:
-            azure.add(ipaddress.ip_network(nw))
+            prefixes.add(nw)
+    azure = IPSet(prefixes)
 
     return {"GHA": gha, "APPV": appveyor, "GCP": gcp, "AWS": aws, "AZ": azure}
 
@@ -204,11 +203,10 @@ def main(argv):
         ci_networks = get_ci_networks()
 
     def get_ci(ip_addr: str) -> str:
-        ip = ipaddress.ip_address(ip_addr)
-        for name, networks in ci_networks.items():
-            for network in networks:
-                if ip in network:
-                    return name
+        ip = IPAddress(ip_addr)
+        for name, ipset in ci_networks.items():
+            if ip in ipset:
+                return name
         return ""
 
     repos = Counter()
