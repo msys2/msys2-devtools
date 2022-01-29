@@ -205,16 +205,20 @@ def main(argv):
 
         return repo
 
-    ci_networks = {}
+    ip_to_ci = {}
     if args.ci:
         ci_networks = get_ci_networks()
 
-    def get_ci(ip_addr: str) -> str:
-        ip = IPAddress(ip_addr)
-        for name, ipset in ci_networks.items():
-            if ip in ipset:
-                return name
-        return ""
+        def get_ip_to_ci(ip_addr: str) -> str:
+            ip = IPAddress(ip_addr)
+            for name, ipset in ci_networks.items():
+                if ip in ipset:
+                    return name
+            return ""
+
+        for entries in grouped.values():
+            ip = entries[0].ClientHost
+            ip_to_ci[ip] = get_ip_to_ci(ip)
 
     first = entries[0].time
     last = entries[0].time
@@ -224,7 +228,7 @@ def main(argv):
     clients: List[ClientInfo] = []
     for entries in grouped.values():
         user_agent = parse_user_agent(entries[0].UserAgent)
-        ci = get_ci(entries[0].ClientHost)
+        ci = ip_to_ci[entries[0].ClientHost]
         if args.skip_ci and ci:
             continue
         ui = ClientInfo(
