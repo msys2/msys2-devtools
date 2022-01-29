@@ -204,13 +204,12 @@ def main(argv):
         ci_networks = get_ci_networks()
 
     def get_ci(ip_addr: str) -> str:
-        cis = []
         ip = ipaddress.ip_address(ip_addr)
         for name, networks in ci_networks.items():
             for network in networks:
                 if ip in network:
-                    cis.append(name)
-        return "/".join(cis)
+                    return name
+        return ""
 
     repos = Counter()
     users: List[UserInfo] = []
