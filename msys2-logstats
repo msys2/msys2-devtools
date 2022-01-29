@@ -232,8 +232,6 @@ def main(argv):
     for group_entries in grouped.values():
         user_agent = parse_user_agent(group_entries[0].UserAgent)
         ci = ip_to_ci.get(group_entries[0].ClientHost, "")
-        if args.skip_ci and ci:
-            continue
         client_info = ClientInfo(
             ".".join(map(str, user_agent.pacman_version)),
             get_windows_edition(user_agent),
@@ -246,6 +244,9 @@ def main(argv):
         for e in group_entries:
             e.client_info = client_info
 
+    if args.skip_ci:
+        entries = [e for e in entries if not ip_to_ci.get(e.ClientHost, "")]
+        clients = [c for c in clients if not c.ci]
 
     # Log info
     print(tabulate([
