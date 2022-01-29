@@ -186,8 +186,14 @@ def main(argv):
         system_id = "".join(entry.UserAgent.split()[1:3])
         return system_id + entry.ClientHost
 
+    first = entries[0].time
+    last = entries[0].time
     grouped = {}
     for entry in entries:
+        if entry.time < first:
+            first = entry.time
+        if entry.time > last:
+            last = entry.time
         key = user_key(entry)
         grouped.setdefault(key, []).append(entry)
 
@@ -220,18 +226,13 @@ def main(argv):
             ip = entries[0].ClientHost
             ip_to_ci[ip] = get_ip_to_ci(ip)
 
-    first = entries[0].time
-    last = entries[0].time
-    requests = 0
-    repos = Counter()
-    ci_systems = Counter()
     clients: List[ClientInfo] = []
-    for entries in grouped.values():
-        user_agent = parse_user_agent(entries[0].UserAgent)
-        ci = ip_to_ci[entries[0].ClientHost]
+    for group_entries in grouped.values():
+        user_agent = parse_user_agent(group_entries[0].UserAgent)
+        ci = ip_to_ci.get(group_entries[0].ClientHost, "")
         if args.skip_ci and ci:
             continue
-        ui = ClientInfo(
+        client_info = ClientInfo(
             ".".join(map(str, user_agent.pacman_version)),
             get_windows_edition(user_agent),
             user_agent.cpu_arch,
@@ -239,36 +240,29 @@ def main(argv):
             user_agent,
             ci
         )
-        clients.append(ui)
-        for entry in entries:
-            requests += 1
-            if entry.time < first:
-                first = entry.time
-            if entry.time > last:
-                last = entry.time
-            repos.update([(get_repo_for_path(entry.RequestPath), ui.ci)])
-            ci_systems.update([ui.ci])
+        clients.append(client_info)
 
     # Log info
     print(tabulate([
         ["Start", first],
         ["End", last],
-        ["Requests", requests],
+        ["Requests", len(entries)],
         ["Clients", f"{len(clients)} (Clients are grouped by IP+WinVer+Arch, which is far from perfect)"],
     ]))
 
     # Repos
     table = []
-    for (repo, ci), count in repos.most_common():
-        pcnt = count / requests * 100
+    for (repo, ci), count in Counter([
+            (get_repo_for_path(e.RequestPath), ip_to_ci.get(e.ClientHost, "")) for e in entries]).most_common():
+        pcnt = count / len(entries) * 100
         table.append([repo, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
     print(tabulate(table, ["Repo", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
 
     # CI Systems
     table = []
-    for ci, count in ci_systems.most_common():
-        pcnt = count / requests * 100
+    for ci, count in Counter([ip_to_ci.get(e.ClientHost, "") for e in entries]).most_common():
+        pcnt = count / len(entries) * 100
         table.append([ci, f"{pcnt:.2f}%", f"{count}"])
     print()
     print(tabulate(table, ["CI", "Percent", "Requests"], stralign="right", numalign="right"))
