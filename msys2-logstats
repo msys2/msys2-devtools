@@ -37,7 +37,7 @@ class UserAgent:
 
 
 @dataclass
-class UserInfo:
+class ClientInfo:
     pacman_version: str
     windows_edition: str
     cpu_arch: str
@@ -218,13 +218,13 @@ def main(argv):
     requests = 0
     repos = Counter()
     ci_systems = Counter()
-    users: List[UserInfo] = []
+    clients: List[ClientInfo] = []
     for entries in grouped.values():
         user_agent = parse_user_agent(entries[0].UserAgent)
         ci = get_ci(entries[0].ClientHost)
         if args.skip_ci and ci:
             continue
-        ui = UserInfo(
+        ui = ClientInfo(
             ".".join(map(str, user_agent.pacman_version)),
             get_windows_edition(user_agent),
             user_agent.cpu_arch,
@@ -232,7 +232,7 @@ def main(argv):
             user_agent,
             ci
         )
-        users.append(ui)
+        clients.append(ui)
         for entry in entries:
             requests += 1
             if entry.time < first:
@@ -243,7 +243,7 @@ def main(argv):
             ci_systems.update([ui.ci])
 
     # Log info
-    print(tabulate([["Start", first], ["End", last], ["Requests", requests], ["Users", len(users)]]))
+    print(tabulate([["Start", first], ["End", last], ["Requests", requests], ["Clients", len(clients)]]))
 
     # Repos
     table = []
@@ -263,36 +263,36 @@ def main(argv):
 
     # Windows versions
     table = []
-    for (edition, ci), count in Counter([(u.windows_edition, u.ci) for u in users]).most_common():
-        pcnt = count / len(users) * 100
+    for (edition, ci), count in Counter([(u.windows_edition, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
         table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
-    print(tabulate(table, ["Windows", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+    print(tabulate(table, ["Windows", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
 
     # Windows versions detailed
     table = []
     for (windows_version, build_number, ci), count in Counter(
-            [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in users]).most_common():
-        pcnt = count / len(users) * 100
+            [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
         table.append([".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
-    print(tabulate(table, ["Win Ver", "Build Number", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+    print(tabulate(table, ["Win Ver", "Build Number", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
 
     # Pacman
     table = []
-    for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in users]).most_common():
-        pcnt = count / len(users) * 100
+    for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
         table.append([version, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
-    print(tabulate(table, ["Pacman Ver", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+    print(tabulate(table, ["Pacman Ver", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
 
     # CPU Arch
     table = []
-    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in users]).most_common():
-        pcnt = count / len(users) * 100
+    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
         table.append([cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
-    print(tabulate(table, ["Arch", "WOW64", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+    print(tabulate(table, ["Arch", "WOW64", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
 
 
 if __name__ == "__main__":
