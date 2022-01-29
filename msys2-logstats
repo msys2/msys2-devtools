@@ -6,7 +6,7 @@ import re
 import sys
 import argparse
 from collections import Counter
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
 from tabulate import tabulate
@@ -24,6 +24,7 @@ class LogEntry:
     RequestProtocol: str
     UserAgent: str
     time: str
+    client_info: "Optional[ClientInfo]"
 
 
 @dataclass
@@ -171,6 +172,7 @@ def main(argv):
                 decoded["RequestProtocol"],
                 decoded["request_User-Agent"],
                 decoded["time"],
+                None,
             )
             if entry.RequestHost not in ["repo.msys2.org", "mirror.msys2.org"]:
                 continue
@@ -241,6 +243,9 @@ def main(argv):
             ci
         )
         clients.append(client_info)
+        for e in group_entries:
+            e.client_info = client_info
+
 
     # Log info
     print(tabulate([
@@ -274,6 +279,13 @@ def main(argv):
         table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
     print(tabulate(table, ["Windows", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
+
+    table = []
+    for (edition, ci), count in Counter([(e.client_info.windows_edition, e.client_info.ci) for e in entries]).most_common():
+        pcnt = count / len(entries) * 100
+        table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Windows", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
 
     # Windows versions detailed
     table = []
