@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+# Expects traefik json access logs either by passing a log file as the first argument, or via stdin
+
+import json
+import re
+import sys
+import ipaddress
+import argparse
+from collections import Counter
+from typing import List, Tuple
+from dataclasses import dataclass
+
+from tabulate import tabulate
+import requests
+
+
+@dataclass
+class LogEntry:
+    ClientHost: str
+    DownstreamStatus: int
+    RequestHost: str
+    RequestMethod: str
+    RequestPath: str
+    RequestProtocol: str
+    UserAgent: str
+    time: str
+
+
+@dataclass
+class UserAgent:
+    pacman_version: Tuple[int, int, int]
+    windows_version: Tuple[int, int]
+    build_number: int
+    is_wow64: bool
+    cpu_arch: str
+    libalpm_version: Tuple[int, int, int]
+
+
+@dataclass
+class UserInfo:
+    pacman_version: str
+    windows_edition: str
+    cpu_arch: str
+    is_wow64: str
+    user_agent: UserAgent
+    ci: str
+
+
+def is_valid_user_agent(ua: str) -> bool:
+    return ua.startswith("pacman") and "_NT-" in ua
+
+
+def parse_user_agent(ua: str) -> UserAgent:
+    assert is_valid_user_agent(ua)
+    m = re.match(r"pacman/([^\s]+) \(([^-]+)-([^-]+)-?([0-9]+|)-?(.+|) ([^)]+)\) libalpm/(.+)", ua)
+    assert m is not None
+    pacman_version, _, windows_version, build_number, wow64, arch, alpm_version = m.groups()
+
+    pacman_version = tuple(map(int, pacman_version.split(".")))
+    windows_version = tuple(map(int, windows_version.split(".")))
+    build_number = int(build_number or "-1")
+    is_wow64 = bool(wow64)
+    cpu_arch = arch
+    alpm_version = tuple(map(int, alpm_version.split(".")))
+
+    return UserAgent(
+        pacman_version,
+        windows_version,
+        build_number,
+        is_wow64,
+        cpu_arch,
+        alpm_version
+    )
+
+
+def test_parse_user_agent():
+    ua = "pacman/6.0.1 (MSYS_NT-10.0-19042 x86_64) libalpm/13.0.1"
+    assert parse_user_agent(ua).pacman_version == (6, 0, 1)
+    ua = "pacman/6.0.1 (MSYS_NT-10.0-19042-WOW64 i686) libalpm/13.0.1"
+    assert parse_user_agent(ua).is_wow64
+    assert parse_user_agent(ua).build_number == 19042
+    ua = "pacman/5.2.1 (MSYS_NT-6.1-7601-WOW64 i686) libalpm/12.0.1"
+    assert parse_user_agent(ua).is_wow64
+    assert parse_user_agent(ua).build_number == 7601
+    ua = "pacman/5.1.0 (MINGW64_NT-10.0 x86_64) libalpm/11.0.0"
+    assert parse_user_agent(ua).build_number == -1
+    assert parse_user_agent(ua).cpu_arch == "x86_64"
+    ua = "pacman/5.0.1 (UCRT64_NT-10.0-WOW i686) libalpm/10.0.1"
+    assert parse_user_agent(ua).build_number == -1
+    assert parse_user_agent(ua).is_wow64
+    assert parse_user_agent(ua).cpu_arch == "i686"
+
+
+def get_windows_edition(ua: UserAgent):
+    if ua.windows_version >= (10, 0):
+        if ua.build_number >= 22000:
+            return "11"
+        else:
+            return "10"
+    elif ua.windows_version == (6, 1):
+        return "7"
+    elif ua.windows_version == (6, 2):
+        return "8"
+    elif ua.windows_version == (6, 3):
+        return "8.1"
+    else:
+        assert 0, ua
+
+
+def get_ci_networks():
+    gha = set()
+    r = requests.get("https://api.github.com/meta")
+    r.raise_for_status()
+    for nw in r.json()["actions"]:
+        gha.add(ipaddress.ip_network(nw))
+
+    appveyor = set()
+    r = requests.get("https://www.appveyor.com/ips.json")
+    r.raise_for_status()
+    for nw in r.json():
+        appveyor.add(ipaddress.ip_network(nw))
+
+    gcp = set()
+    r = requests.get("https://www.gstatic.com/ipranges/cloud.json")
+    r.raise_for_status()
+    for prefix in r.json()["prefixes"]:
+        gcp.add(ipaddress.ip_network(prefix.get("ipv4Prefix", prefix.get("ipv6Prefix"))))
+
+    aws = set()
+    r = requests.get("https://ip-ranges.amazonaws.com/ip-ranges.json")
+    r.raise_for_status()
+    for prefix in r.json()["prefixes"]:
+        aws.add(ipaddress.ip_network(prefix["ip_prefix"]))
+    for prefix in r.json()["ipv6_prefixes"]:
+        aws.add(ipaddress.ip_network(prefix["ipv6_prefix"]))
+
+    azure = set()
+    r = requests.get(
+        "https://download.microsoft.com/download/7/1/D/71D86715-5596-4529-9B13-DA13A5DE5B63/ServiceTags_Public_20220124.json")
+    r.raise_for_status()
+    for value in r.json()["values"]:
+        for nw in value["properties"]["addressPrefixes"]:
+            azure.add(ipaddress.ip_network(nw))
+
+    return {"GHA": gha, "APPV": appveyor, "GCP": gcp, "AWS": aws, "AZ": azure}
+
+
+def main(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('infile', nargs='?', type=argparse.FileType('r', encoding="utf-8"), default=sys.stdin)
+    parser.add_argument('--ci', action='store_true', help='detect potential CI/cloud IP ranges')
+    args = parser.parse_args(argv[1:])
+
+    entries: List[LogEntry] = []
+    with args.infile as h:
+        for line in h:
+            if not line.startswith("{"):
+                continue
+            decoded = json.loads(line)
+            if "RequestHost" not in decoded or "request_User-Agent" not in decoded:
+                continue
+            entries.append(LogEntry(
+                decoded["ClientHost"],
+                decoded["DownstreamStatus"],
+                decoded["RequestHost"],
+                decoded["RequestMethod"],
+                decoded["RequestPath"],
+                decoded["RequestProtocol"],
+                decoded["request_User-Agent"],
+                decoded["time"],
+            ))
+
+    def user_key(entry):
+        return entry.UserAgent + entry.ClientHost
+
+    first = entries[0].time
+    last = entries[0].time
+    requests = 0
+
+    grouped = {}
+    for entry in entries:
+        if entry.time < first:
+            first = entry.time
+        if entry.time > last:
+            last = entry.time
+        if entry.RequestHost not in ["repo.msys2.org", "mirror.msys2.org"] or entry.RequestMethod != "GET":
+            continue
+        if not is_valid_user_agent(entry.UserAgent):
+            continue
+        requests += 1
+        key = user_key(entry)
+        grouped.setdefault(key, []).append(entry)
+
+    def get_repo_for_path(path: str) -> str:
+        repo = path.rsplit("/", 1)[0].lstrip("/")
+        if repo == "mingw/i686":
+            return "mingw/mingw32"
+        elif repo == "mingw/x86_64":
+            return "mingw/mingw64"
+        return repo
+
+    ci_networks = {}
+    if args.ci:
+        ci_networks = get_ci_networks()
+
+    def get_ci(ip_addr: str) -> str:
+        cis = []
+        ip = ipaddress.ip_address(ip_addr)
+        for name, networks in ci_networks.items():
+            for network in networks:
+                if ip in network:
+                    cis.append(name)
+        return "/".join(cis)
+
+    repos = Counter()
+    users: List[UserInfo] = []
+    for entries in grouped.values():
+        user_agent = parse_user_agent(entries[0].UserAgent)
+        ui = UserInfo(
+            ".".join(map(str, user_agent.pacman_version)),
+            get_windows_edition(user_agent),
+            user_agent.cpu_arch,
+            str(user_agent.is_wow64),
+            user_agent,
+            get_ci(entries[0].ClientHost)
+        )
+        users.append(ui)
+        for entry in entries:
+            repos.update([(get_repo_for_path(entry.RequestPath), ui.ci)])
+
+    # Log info
+    print(tabulate([["Start", first], ["End", last], ["Requests", requests], ["Users", len(users)]]))
+
+    # Repos
+    table = []
+    for (repo, ci), count in repos.most_common():
+        pcnt = count / requests * 100
+        table.append([repo, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Repo", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
+
+    # Windows versions
+    table = []
+    for (edition, ci), count in Counter([(u.windows_edition, u.ci) for u in users]).most_common():
+        pcnt = count / len(users) * 100
+        table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Windows", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+
+    # Windows versions detailed
+    table = []
+    for (windows_version, build_number, ci), count in Counter(
+            [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in users]).most_common():
+        pcnt = count / len(users) * 100
+        table.append([".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Win Ver", "Build Number", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+
+    # Pacman
+    table = []
+    for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in users]).most_common():
+        pcnt = count / len(users) * 100
+        table.append([version, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Pacman Ver", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+
+    # CPU Arch
+    table = []
+    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in users]).most_common():
+        pcnt = count / len(users) * 100
+        table.append([cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"])
+    print()
+    print(tabulate(table, ["Arch", "WOW64", "CI", "Percent", "Users"], stralign="right", numalign="right"))
+
+
+if __name__ == "__main__":
+    main(sys.argv)
