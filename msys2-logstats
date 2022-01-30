@@ -57,7 +57,7 @@ def parse_user_agent(ua: str) -> UserAgent:
     assert m is not None
     pacman_version, _, windows_version, build_number, wow64, arch, alpm_version = m.groups()
 
-    pacman_version = tuple(map(int, pacman_version.split(".")))
+    pacman_version = tuple(map(int, pacman_version.split("-")[0].split(".")))
     windows_version = tuple(map(int, windows_version.split(".")))
     build_number = int(build_number or "-1")
     is_wow64 = bool(wow64)
@@ -90,6 +90,9 @@ def test_parse_user_agent():
     assert parse_user_agent(ua).build_number == -1
     assert parse_user_agent(ua).is_wow64
     assert parse_user_agent(ua).cpu_arch == "i686"
+    ua = "pacman/4.2.1-313-g5535-dirty (MINGW64_NT-6.1 x86_64) libalpm/9.0.1"
+    assert parse_user_agent(ua).pacman_version == (4, 2, 1)
+
 
 
 def get_windows_edition(ua: UserAgent):
