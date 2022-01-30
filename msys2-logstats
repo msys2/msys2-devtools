@@ -209,12 +209,15 @@ def main(argv):
         elif repo == "mingw/x86_64":
             repo = "mingw/mingw64"
 
-        if path.endswith(".db") or ".db." in path:
-            repo += "/db"
-        elif path.endswith(".files") or ".files." in path:
-            repo += "/db"
-
         return repo
+
+    def get_type_for_path(path: str) -> str:
+        if path.endswith(".db") or ".db." in path:
+            return "db"
+        elif path.endswith(".files") or ".files." in path:
+            return "db"
+        else:
+            return "pkg"
 
     ip_to_ci = {}
     if args.ci:
@@ -261,12 +264,13 @@ def main(argv):
 
     # Repos
     table = []
-    for (repo, ci), count in Counter([
-            (get_repo_for_path(e.RequestPath), ip_to_ci.get(e.ClientHost, "")) for e in entries]).most_common():
+    for (repo, type_, ci), count in Counter([
+            (get_repo_for_path(e.RequestPath), get_type_for_path(e.RequestPath),
+             ip_to_ci.get(e.ClientHost, "")) for e in entries]).most_common():
         pcnt = count / len(entries) * 100
-        table.append([repo, ci, f"{pcnt:.2f}%", f"{count}"])
+        table.append([repo, type_, ci, f"{pcnt:.2f}%", f"{count}"])
     print()
-    print(tabulate(table, ["Repo", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
+    print(tabulate(table, ["Repo", "Type", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
 
     # CI Systems
     table = []
