@@ -101,6 +101,10 @@ def get_windows_edition(ua: UserAgent):
             return "11"
         else:
             return "10"
+    elif ua.windows_version == (5, 1):
+        return "XP"
+    elif ua.windows_version == (5, 2):
+        return "XP"
     elif ua.windows_version == (6, 1):
         return "7"
     elif ua.windows_version == (6, 2):
