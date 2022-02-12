@@ -140,8 +140,10 @@ def get_ci_networks():
         prefixes.add(prefix["ipv6_prefix"])
     aws = IPSet(prefixes)
 
-    r = requests.get(
-        "https://download.microsoft.com/download/7/1/D/71D86715-5596-4529-9B13-DA13A5DE5B63/ServiceTags_Public_20220124.json")
+    r = requests.get("https://www.microsoft.com/en-us/Download/confirmation.aspx?id=56519")
+    r.raise_for_status()
+    match = re.search("(https://download.microsoft.com/.*?/ServiceTags_Public_.*?\\.json)", r.text)
+    r = requests.get(match.groups(0)[0])
     r.raise_for_status()
     prefixes = set()
     for value in r.json()["values"]:
