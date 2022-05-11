@@ -53,11 +53,16 @@ update_packages() {
         done
 
         # check sources
-        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.zst" "*/desc" | grep -A 4 -e %BASE% | awk '/^%BASE%$/ { getline; printf "%s-", $0; getline; getline; getline; printf "%s.src.tar.gz\n", $0 }' | sed -r 's/^(.*)$/\1\n\1.sig/' | sort | uniq)"
-        infs="$(find "${pub}/${srcpath}" -name "*.src.tar.*" -printf '%f\n' | sort)"
+        inrepo="$(bsdtar -xOf "${pub}/${path}/${repo}.db.tar.zst" "*/desc" | grep -A 4 -e %BASE% | awk '/^%BASE%$/ { getline; printf "%s-", $0; getline; getline; getline; printf "%s\n", $0 }' | sort | uniq)"
+        infs="$(find "${pub}/${srcpath}" -name "*.src.tar.*" -not -name "*.src.tar.*.sig" -printf '%f\n' | sort | rev | cut -d. -f 4- | rev)"
         for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infs}"))
         do
-            echo "==> WARNING: '${f}' is missing."
+            echo "==> WARNING: '${f}.src.tar.*' is missing."
+        done
+        infssig="$(find "${pub}/${srcpath}" -name "*.src.tar.*.sig" -printf '%f\n' | sort | rev | cut -d. -f 5- | rev)"
+        for f in $(echo "${inrepo}" | grep -vxF -f <(echo "${infssig}"))
+        do
+            echo "==> WARNING: '${f}.src.tar.*.sig' is missing."
         done
 
         echo
