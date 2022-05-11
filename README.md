@@ -45,13 +45,6 @@ Remove old packages:
 msys2-devtools/msys2-dbremove-api
 ```
 
-Sync to SourceForge:
-
-```sh
-msys2-devtools/msys2-dbsync SF_USERNAME
-```
-
-
 ## Update installer
 
 ```sh
