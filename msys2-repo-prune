@@ -196,7 +196,7 @@ def main(argv):
     parser = argparse.ArgumentParser(
         description="List old packages to prune", allow_abbrev=False)
     parser.add_argument("root", help="path to root dir")
-    parser.add_argument("--days", default=365 * 1.5, type=int,
+    parser.add_argument("--days", default=365 * 1.75, type=int,
                         help="days after which a package can be pruned")
 
     args = parser.parse_args(argv[1:])
