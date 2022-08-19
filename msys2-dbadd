@@ -21,6 +21,9 @@ rm "${0}.sig"
     shopt -s nullglob
     for f in "${staging}"/*/*/*.{pkg,src}.tar.{gz,xz,zst}
     do
+        # Verify that the archives aren't corrupted or truncated etc.
+        zstd --quiet --test "$f"
+
         test -f "$f.sig" || gpg --detach-sign "${SIGNWITHKEY[@]}" "$f"
     done
 )
@@ -37,9 +40,6 @@ update_packages() {
     if [ "${#files[@]}" -gt 0 ]
     then
         echo "==> ${path}"
-
-        # Verify that the archives aren't corrupted or truncated etc.
-        zstd --quiet --test "${files[@]}"
 
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
         repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
