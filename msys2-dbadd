@@ -38,6 +38,9 @@ update_packages() {
     then
         echo "==> ${path}"
 
+        # Verify that the archives aren't corrupted or truncated etc.
+        zstd --quiet --test "${files[@]}"
+
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
         repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
         gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
