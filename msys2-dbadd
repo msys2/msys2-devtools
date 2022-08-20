@@ -19,12 +19,18 @@ rm "${0}.sig"
 
 (
     shopt -s nullglob
-    for f in "${staging}"/*/*/*.{pkg,src}.tar.{gz,xz,zst}
+    for f in "${staging}"/*/*/*.{pkg,src}.tar.zst
     do
-        # Verify that the archives aren't corrupted or truncated etc.
+        echo "$f"
+
+        # Verify that the archives aren't corrupt or truncated etc.
         zstd --quiet --test "$f"
 
+        # Sign, if not already
         test -f "$f.sig" || gpg --detach-sign "${SIGNWITHKEY[@]}" "$f"
+
+        # Make sure the signature file got written properly
+        gpg --list-packets "$f.sig" > /dev/null
     done
 )
 
