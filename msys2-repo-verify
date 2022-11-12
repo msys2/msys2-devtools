@@ -1,0 +1,79 @@
+#!/bin/bash
+# This script makes sure that:
+#   * all files in the repo are signed
+#   * that they are signed with the keys we know about
+#   * that their signatures are valid
+
+set -e -o pipefail
+
+PACKAGE_KEYS=(
+    "AD35 1C50 AE08 5775 EB59 333B 5F92 EFC1 A47D 45A1"
+    "8777 1331 B3F1 FF52 6385 6A6D 974C 8BE4 9078 F532"
+    "5F94 4B02 7F7F E209 1985 AA2E FA11 531A A0AA 7F57"
+)
+
+INSTALLER_KEYS=(
+    "0EBF 782C 5D53 F7E5 FB02 A667 46BD 761F 7A49 B0EC"
+)
+
+REPO="/srv/msys2repo"
+
+verify_repo () {
+    if [[ ! -f "$REPO" ]]; then
+        echo "$REPO is missing"
+        exit 1
+    fi
+
+    find "$REPO" -type f -print0 | while IFS= read -r -d '' f; do
+        echo "$f"
+
+        if [[ "$f" =~ .*\.sig$ ]]; then
+            sig="$f"
+            base="${sig%.*}"
+            # for every detached signature there needs to be a matching signed file
+            if [[ ! -f "$base" ]]; then
+                echo "$base is missing"
+                exit 1
+            fi
+        else
+            base="$f"
+
+            # these are special and don't need a signature
+            if [[ "$base" == "$REPO/lastupdate" ]] || [[ "$base" == "$REPO/lastsync" ]]; then
+                continue
+            fi
+
+            # make sure the signature exists
+            sig="$base.sig"
+            if [[ ! -f "$sig" ]]; then
+                echo "$sig is missing"
+                exit 1
+            fi
+
+            # verify
+            gpg --quiet --verify "$sig" "$base"
+        fi
+    done
+}
+
+import_keys()
+{
+    # import
+    gpg --keyserver keyserver.ubuntu.com --recv "${INSTALLER_KEYS[@]}" "${PACKAGE_KEYS[@]}"
+    # mark as trusted
+    for key in "${INSTALLER_KEYS[@]}" "${PACKAGE_KEYS[@]}"; do
+        echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key "$key" trust;
+    done
+}
+
+main () {
+    GNUPGHOME="$(mktemp -d)"
+    export GNUPGHOME
+    dirmngr --daemon
+    import_keys
+    verify_repo
+    rm -Rf "$GNUPGHOME"
+    echo "ALL OK!"
+}
+
+main
