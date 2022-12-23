@@ -268,6 +268,8 @@ def main(argv):
         entries = [e for e in entries if not ip_to_ci.get(e.ClientHost, "")]
         clients = [c for c in clients if not c.ci]
 
+    show_ci = args.ci and not args.skip_ci
+
     # Log info
     print(tabulate([
         ["Start", first],
@@ -277,62 +279,100 @@ def main(argv):
     ]))
 
     # Repos
-    table = []
-    for (repo, type_, ci), count in Counter([
-            (get_repo_for_path(e.RequestPath), get_type_for_path(e.RequestPath),
-             ip_to_ci.get(e.ClientHost, "")) for e in entries]).most_common():
-        pcnt = count / len(entries) * 100
-        table.append([repo, type_, ci, f"{pcnt:.2f}%", f"{count}"])
-    print()
-    print(tabulate(table, ["Repo", "Type", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
+    for request_type in ["pkg", "db"]:
+        type_requests = [e for e in entries if get_type_for_path(e.RequestPath) == request_type]
+        table = []
+        for (repo, type_, ci), count in Counter([
+                (get_repo_for_path(e.RequestPath), get_type_for_path(e.RequestPath),
+                 e.client_info.ci) for e in type_requests]).most_common():
+            pcnt = count / len(type_requests) * 100
+            line = [repo, type_, ci, f"{pcnt:.2f}%", f"{count}"]
+            if not show_ci:
+                line.pop(2)
+            table.append(line)
+        headers = ["Repo", "Type", "CI", "% Requests", "Requests"]
+        if not show_ci:
+            headers.pop(2)
+        print()
+        print(tabulate(table, headers, stralign="right", numalign="right"))
 
     # CI Systems
-    table = []
-    for ci, count in Counter([ip_to_ci.get(e.ClientHost, "") for e in entries]).most_common():
-        pcnt = count / len(entries) * 100
-        table.append([ci, f"{pcnt:.2f}%", f"{count}"])
-    print()
-    print(tabulate(table, ["CI", "Percent", "Requests"], stralign="right", numalign="right"))
+    if show_ci:
+        per_request = {}
+        for ci, count in Counter([e.client_info.ci for e in entries]).most_common():
+            per_request[ci] = count
+        table = []
+        for ci, count_clients in Counter([u.ci for u in clients]).most_common():
+            pcnt_clients = count_clients / len(clients) * 100
+            count_req = per_request[ci]
+            pcnt_req = count_req / len(entries) * 100
+            line = [ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
+            table.append(line)
+        headers = ["CI", "% Clients", "Clients", "% Requests", "Requests"]
+        print()
+        print(tabulate(table, headers, stralign="right", numalign="right"))
 
     # Windows versions
-    table = []
-    for (edition, ci), count in Counter([(u.windows_edition, u.ci) for u in clients]).most_common():
-        pcnt = count / len(clients) * 100
-        table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
-    print()
-    print(tabulate(table, ["Windows", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
-
-    table = []
+    per_request = {}
     for (edition, ci), count in Counter([(e.client_info.windows_edition, e.client_info.ci) for e in entries]).most_common():
-        pcnt = count / len(entries) * 100
-        table.append([edition, ci, f"{pcnt:.2f}%", f"{count}"])
+        per_request[(edition, ci)] = count
+    table = []
+    for (edition, ci), count_clients in Counter([(u.windows_edition, u.ci) for u in clients]).most_common():
+        pcnt_clients = count_clients / len(clients) * 100
+        count_req = per_request[(edition, ci)]
+        pcnt_req = count_req / len(entries) * 100
+        line = [edition, ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
+        if not show_ci:
+            line.pop(1)
+        table.append(line)
+    headers = ["Windows", "CI", "% Clients", "Clients", "% Requests", "Requests"]
+    if not show_ci:
+        headers.pop(1)
     print()
-    print(tabulate(table, ["Windows", "CI", "Percent", "Requests"], stralign="right", numalign="right"))
+    print(tabulate(table, headers, stralign="right", numalign="right"))
 
     # Windows versions detailed
     table = []
     for (windows_version, build_number, ci), count in Counter(
             [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in clients]).most_common():
         pcnt = count / len(clients) * 100
-        table.append([".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"])
+        line = [".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(2)
+        table.append(line)
+    headers = ["Win Ver", "Build Number", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(2)
     print()
-    print(tabulate(table, ["Win Ver", "Build Number", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
+    print(tabulate(table, headers, stralign="right", numalign="right"))
 
     # Pacman
     table = []
     for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in clients]).most_common():
         pcnt = count / len(clients) * 100
-        table.append([version, ci, f"{pcnt:.2f}%", f"{count}"])
+        line = [version, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(1)
+        table.append(line)
+    headers = ["Pacman Ver", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(1)
     print()
-    print(tabulate(table, ["Pacman Ver", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
+    print(tabulate(table, headers, stralign="right", numalign="right"))
 
     # CPU Arch
     table = []
     for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in clients]).most_common():
         pcnt = count / len(clients) * 100
-        table.append([cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"])
+        line = [cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(2)
+        table.append(line)
+    headers = ["Arch", "WOW64", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(2)
     print()
-    print(tabulate(table, ["Arch", "WOW64", "CI", "Percent", "Clients"], stralign="right", numalign="right"))
+    print(tabulate(table, headers, stralign="right", numalign="right"))
 
 
 if __name__ == "__main__":
