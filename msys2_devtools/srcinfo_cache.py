@@ -103,14 +103,14 @@ def get_srcinfo_for_pkgbuild(msys2_root: str, args: Tuple[str, str]) -> Optional
                 srcinfos[name] = check_output_msys(
                     msys2_root,
                     ["/usr/bin/makepkg-mingw",
-                    "--printsrcinfo", "-p", git_path],
+                     "--printsrcinfo", "-p", git_path],
                     cwd=git_cwd,
                     env=env).decode("utf-8")
         else:
             srcinfos["msys"] = check_output_msys(
                 msys2_root,
                 ["/usr/bin/makepkg",
-                "--printsrcinfo", "-p", git_path],
+                 "--printsrcinfo", "-p", git_path],
                 cwd=git_cwd).decode("utf-8")
 
         repo = subprocess.check_output(
@@ -178,7 +178,8 @@ def main(argv: List[str]) -> None:
     parser.add_argument("msys2_root", help="The path to MSYS2")
     parser.add_argument("repo_path", help="The path to GIT repo")
     parser.add_argument("json_cache", help="The path to the json.gz file used to fetch/store the results")
-    parser.add_argument("--time-limit", action="store",
+    parser.add_argument(
+        "--time-limit", action="store",
         type=int, dest="time_limit", default=0,
         help='time after which it will stop and save, 0 means no limit')
     args = parser.parse_args(argv[1:])
