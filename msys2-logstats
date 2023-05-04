@@ -148,7 +148,13 @@ def get_ci_networks():
         prefixes.add(prefix["ipv6_prefix"])
     aws = IPSet(prefixes)
 
-    r = requests.get("https://www.microsoft.com/en-us/Download/confirmation.aspx?id=56519")
+    r = requests.get(
+        "https://www.microsoft.com/en-us/Download/confirmation.aspx?id=56519",
+        headers={
+            'User-Agent':
+                'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/112.0'
+        }
+    )
     r.raise_for_status()
     match = re.search("(https://download.microsoft.com/.*?/ServiceTags_Public_.*?\\.json)", r.text)
     r = requests.get(match.groups(0)[0])
@@ -171,6 +177,9 @@ def main(argv):
 
     if args.skip_ci:
         args.ci = True
+
+    if args.ci:
+        ci_networks = get_ci_networks()
 
     entries: List[LogEntry] = []
     with args.infile as h:
@@ -235,8 +244,6 @@ def main(argv):
 
     ip_to_ci = {}
     if args.ci:
-        ci_networks = get_ci_networks()
-
         def get_ip_to_ci(ip_addr: str) -> str:
             ip = IPAddress(ip_addr)
             for name, ipset in ci_networks.items():
