@@ -9,3 +9,4 @@ Repo server commands:
 CI commands:
 
 * `msys2-srcinfo-cache`: Maintains srcinfo data for all packages in a git repo
+* `msys2-pypi-cache`: Maintains a pypi metadata cache for all packages
