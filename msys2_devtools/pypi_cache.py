@@ -130,7 +130,6 @@ def main(argv: List[str]) -> None:
     parser.add_argument("pypi_cache", help="The path to the json.gz file used to fetch/store the results")
     args = parser.parse_args(argv[1:])
 
-    print(args)
     logging.basicConfig(level="INFO")
     dump_pypi_metadata(get_project_names(args.pkg_meta), args.pypi_cache)
 
