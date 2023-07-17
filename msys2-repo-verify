@@ -42,6 +42,9 @@ verify_repo () {
             if [[ "$base" == "$REPO/lastupdate" ]] || [[ "$base" == "$REPO/lastsync" ]]; then
                 continue
             fi
+            if [[ "$base" == "$REPO/distrib/README.txt" ]]; then
+                continue
+            fi
 
             # make sure the signature exists
             sig="$base.sig"
