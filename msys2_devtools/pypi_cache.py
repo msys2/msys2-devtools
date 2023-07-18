@@ -39,7 +39,7 @@ def get_project_names(pkgmeta_path: str):
 
     with open(pkgmeta_path, "rb") as h:
         data = h.read()
-    meta = PkgMeta.parse_obj(yaml.safe_load(data))
+    meta = PkgMeta.model_validate(yaml.safe_load(data))
     names = []
     for entry in meta.packages.values():
         if "pypi" in entry.references:
