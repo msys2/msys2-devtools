@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import io
 import sys
 import fnmatch
@@ -64,7 +65,7 @@ def get_safe_patterns_for_db(db_path):
                     return default
 
                 filename = get_value("%FILENAME%")
-                assert fnmatch.fnmatch(filename, "*.pkg.*")
+                assert fnmatch.fnmatchcase(filename, "*.pkg.*")
                 filename += "*"
                 sourcename = get_value("%BASE%", get_value("%NAME%"))
                 sourcename += "-" + get_value("%VERSION%") + "*.src.*"
@@ -104,6 +105,13 @@ def get_dirs_to_prune(db_path):
     return {dir_, sources}
 
 
+def fnmatch_filter_case_multi(names, patterns):
+    """Like fnmatch.filter() but case sensitive and supports multiple patterns"""
+
+    regex = re.compile('|'.join(fnmatch.translate(p) for p in patterns))
+    return [e for e in names if regex.match(e)]
+
+
 def get_files_to_prune(target_dir, time_delta):
     """Gives a list of paths to delete"""
 
@@ -132,13 +140,10 @@ def get_files_to_prune(target_dir, time_delta):
     ref_mtime = datetime.fromtimestamp(newest_mtime)
     paths_to_delete = set()
     for prune_dir, safe_patterns in sorted(prune_mapping.items()):
+        log("Dir:", prune_dir)
 
         def get_entries_not_to_delete(entries):
-            not_to_delete = set()
-            for pattern in sorted(safe_patterns):
-                not_to_delete.update(
-                    fnmatch.filter(entries, pattern))
-            return not_to_delete
+            return set(fnmatch_filter_case_multi(entries, safe_patterns))
 
         def group_by_package_name_and_ext(entries):
             groups = {}
