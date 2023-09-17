@@ -13,6 +13,7 @@ from functools import partial
 
 from typing import List, Iterator, Tuple, Dict, Optional, Union, Collection, Sequence, Any
 from .pkgbuild import get_extra_meta_for_pkgbuild
+from .pkgextra import extra_to_pkgextra_entry
 
 
 CacheEntry = Dict[str, Union[str, Collection[str]]]
@@ -175,6 +176,11 @@ def iter_srcinfo(msys2_root: str, repo_path: str, mode: str, cache: Cache) -> It
             yield srcinfo
 
 
+def validate_srcinfo(entry: CacheEntry):
+    if "extra" in entry:
+        extra_to_pkgextra_entry(entry["extra"])
+
+
 def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser(description="Create SRCINFOs for all packages in a repo", allow_abbrev=False)
     parser.add_argument('mode', choices=['msys', 'mingw'], help="The type of the repo")
@@ -201,6 +207,7 @@ def main(argv: List[str]) -> None:
     for entry in iter_srcinfo(args.msys2_root, args.repo_path, args.mode, cache):
         if entry is None:
             continue
+        validate_srcinfo(entry[1])
         srcinfos.append(entry)
         # So we stop before CI times out
         if args.time_limit and time.monotonic() - t > args.time_limit:
