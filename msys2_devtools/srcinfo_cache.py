@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 from typing import List, Iterator, Tuple, Dict, Optional, Union, Collection, Sequence, Any
+from .pkgbuild import get_extra_meta_for_pkgbuild
 
 
 CacheEntry = Dict[str, Union[str, Collection[str]]]
@@ -127,7 +128,9 @@ def get_srcinfo_for_pkgbuild(msys2_root: str, args: Tuple[str, str]) -> Optional
             ["git", "log", "-1", "--format=%aI", git_path],
             cwd=git_cwd).decode("utf-8").strip()
 
-        meta = {"repo": repo, "path": relpath, "date": date, "srcinfo": srcinfos}
+        extra_meta = get_extra_meta_for_pkgbuild(msys2_root, pkgbuild_path)
+
+        meta = {"repo": repo, "path": relpath, "date": date, "srcinfo": srcinfos, "extra": extra_meta}
     except subprocess.CalledProcessError as e:
         print("ERROR: %s %s" % (pkgbuild_path, e.output.splitlines()))
         return None
