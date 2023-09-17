@@ -1,6 +1,6 @@
 """Create a pypi package cache for all packages in a repo.
 
-Extracts the pypi project names from the PKGMETA.yml file and then fetches all
+Extracts the pypi project names from the srcinfo file and then fetches all
 project related information from the PyPI API. The results are stored in a cache
 file. Repeated runs will only fetch the data for new packages or packages that
 have been updated on PyPI.
@@ -10,40 +10,27 @@ import requests
 import json
 import gzip
 import logging
-import yaml
 import sys
 import argparse
-from pydantic import BaseModel, Field
-from typing import Dict, Optional, List
+from typing import Dict, List
+
+from .pkgextra import extra_to_pkgextra_entry
 
 log = logging.getLogger(__name__)
 
 
-class PkgMetaEntry(BaseModel):
-
-    internal: bool = Field(default=False)
-    """If the package is MSYS2 internal or just a meta package"""
-
-    references: Dict[str, Optional[str]] = Field(default_factory=dict)
-    """References to third party repositories"""
-
-
-class PkgMeta(BaseModel):
-
-    packages: Dict[str, PkgMetaEntry]
-    """A mapping of pkgbase names to PkgMetaEntry"""
-
-
-def get_project_names(pkgmeta_path: str):
+def get_project_names(srcinfo_path: str):
     """Returns all pypi project names from the PKGMETA.yml file."""
 
-    with open(pkgmeta_path, "rb") as h:
-        data = h.read()
-    meta = PkgMeta.model_validate(yaml.safe_load(data))
+    with open(srcinfo_path, "rb") as h:
+        cache = json.loads(gzip.decompress(h.read()))
+
     names = []
-    for entry in meta.packages.values():
-        if "pypi" in entry.references:
-            names.append(entry.references["pypi"])
+    for entry in cache.values():
+        if "extra" in entry:
+            pkgextra = extra_to_pkgextra_entry(entry["extra"])
+            if "pypi" in pkgextra.references:
+                names.append(pkgextra.references["pypi"])
     return names
 
 
@@ -126,12 +113,12 @@ def dump_pypi_metadata(project_names: list[str], output_path: str):
 
 def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser(description="Create a pypi package cache for all packages in a repo", allow_abbrev=False)
-    parser.add_argument("pkg_meta", help="The path to the PKGMETA.yml file")
+    parser.add_argument("srcinfo_cache", help="The path to the srcinfo.json.gz file")
     parser.add_argument("pypi_cache", help="The path to the json.gz file used to fetch/store the results")
     args = parser.parse_args(argv[1:])
 
     logging.basicConfig(level="INFO")
-    dump_pypi_metadata(get_project_names(args.pkg_meta), args.pypi_cache)
+    dump_pypi_metadata(get_project_names(args.srcinfo_cache), args.pypi_cache)
 
 
 def run() -> None:
