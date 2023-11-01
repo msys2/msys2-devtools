@@ -48,7 +48,7 @@ update_packages() {
         echo "==> ${path}"
 
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
-        repo-add -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
+        repo-add --include-sigs -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
         gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
         gpg --verify "${staging}/${path}/${repo}.files.tar.zst.sig" "${staging}/${path}/${repo}.files.tar.zst"
         mv "${staging}/${path}"/* "${pub}/${path}/"
