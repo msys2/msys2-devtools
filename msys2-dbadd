@@ -42,13 +42,20 @@ update_packages() {
     local srcpath="${1}"
     shift
 
+    # Skip embedded signatures for clang32 and clangarm64
+    # https://github.com/msys2/msys2-devtools/issues/5#issuecomment-1788722206
+    local repo_options=(--include-sigs)
+    if [ "${repo}" = "clang32" ] || [ "${repo}" = "clangarm64" ]; then
+        repo_options=()
+    fi
+
     local files=( $(find "${staging}/${path}" -name "*.pkg.tar.*" -not -name "*.sig") )
     if [ "${#files[@]}" -gt 0 ]
     then
         echo "==> ${path}"
 
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
-        repo-add --include-sigs -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
+        repo-add "${repo_options[@]}" -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
         gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
         gpg --verify "${staging}/${path}/${repo}.files.tar.zst.sig" "${staging}/${path}/${repo}.files.tar.zst"
         mv "${staging}/${path}"/* "${pub}/${path}/"
