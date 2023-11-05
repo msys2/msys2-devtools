@@ -42,11 +42,11 @@ update_packages() {
     local srcpath="${1}"
     shift
 
-    # Skip embedded signatures for clang32 and clangarm64
-    # https://github.com/msys2/msys2-devtools/issues/5#issuecomment-1788722206
-    local repo_options=(--include-sigs)
-    if [ "${repo}" = "clang32" ] || [ "${repo}" = "clangarm64" ] || [ "${repo}" = "clang64" ] || [ "${repo}" = "ucrt64" ]; then
-        repo_options=()
+    # Skip embedded signatures for everything but msys
+    # https://github.com/msys2/msys2-devtools/issues/5
+    local repo_options=()
+    if [ "${repo}" = "msys" ]; then
+        repo_options=(--include-sigs)
     fi
 
     local files=( $(find "${staging}/${path}" -name "*.pkg.tar.*" -not -name "*.sig") )
