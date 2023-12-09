@@ -9,7 +9,7 @@ import struct
 import sys
 from collections import Counter
 from datetime import datetime
-from typing import NamedTuple
+from typing import NamedTuple, Iterator
 
 from pgpdump import BinaryData
 from pgpdump.utils import PgpdumpException
@@ -102,12 +102,17 @@ def get_signature_paths(root_path: str, include_all: bool) -> list[str]:
     return sorted(paths)
 
 
-def list_stats(root_path: str, include_all: bool) -> None:
-    c = Counter()
-    for p in get_signature_paths(root_path, include_all):
+def parse_signatures(paths: list[str]) -> Iterator[tuple[str, Signature]]:
+    for p in paths:
         with open(p, "rb") as h:
             data = h.read()
-        sig = parse_signature(data)
+        yield (p, parse_signature(data))
+
+
+def list_stats(root_path: str, include_all: bool) -> None:
+    c = Counter()
+    paths = get_signature_paths(root_path, include_all)
+    for p, sig in parse_signatures(paths):
         c[sig.keyid] += 1
 
     table_data = []
@@ -121,10 +126,8 @@ def list_stats(root_path: str, include_all: bool) -> None:
 
 def list_keyid(root_path: str, include_all: bool, keyid: str) -> None:
     table_data = []
-    for p in get_signature_paths(root_path, include_all):
-        with open(p, "rb") as h:
-            data = h.read()
-        sig = parse_signature(data)
+    paths = get_signature_paths(root_path, include_all)
+    for p, sig in parse_signatures(paths):
         if sig.keyid.upper() == keyid.upper():
             table_data.append([sig.name, sig.date, os.path.relpath(p, root_path)])
 
