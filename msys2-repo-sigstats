@@ -80,7 +80,7 @@ def find_dbs(target_dir: str) -> list[str]:
     for root, dirs, files in os.walk(target_dir):
         for name in files:
             if fnmatch.fnmatch(name, "*.db"):
-                db_paths.add(os.path.join(root, name))
+                db_paths.add(os.path.realpath(os.path.join(root, name)))
 
     return sorted(db_paths)
 
