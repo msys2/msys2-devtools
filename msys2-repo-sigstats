@@ -1,0 +1,157 @@
+#!/bin/env python3
+
+import argparse
+import binascii
+import fnmatch
+import glob
+import os
+import struct
+import sys
+from collections import Counter
+from datetime import datetime
+from typing import NamedTuple
+
+from pgpdump import BinaryData
+from pgpdump.utils import PgpdumpException
+from tabulate import tabulate
+
+from msys2_devtools.db import ExtTarFile
+
+KNOWN_KEYS = {
+    "5F92EFC1A47D45A1": "Alexey Pavlov",
+    "4DF3B7664CA56930": "Ray Donnelly",
+    "D595C9AB2C51581E": "Martell Malone",
+    "974C8BE49078F532": "David Macek",
+    "FA11531AA0AA7F57": "Christoph Reiter",
+    "628F528CF3053E04": "David Macek",
+}
+
+
+class Signature(NamedTuple):
+    keyid: str
+    date: datetime
+
+    @property
+    def url(self) -> str:
+        return (
+            "https://keyserver.ubuntu.com/pks/lookup?op=vindex&fingerprint=on&search=0x"
+            + self.keyid
+        )
+
+    @property
+    def name(self) -> str:
+        return KNOWN_KEYS.get(self.keyid.upper(), "Unknown")
+
+
+class SigError(Exception):
+    pass
+
+
+def parse_signature(sig_data: bytes) -> Signature:
+    date = None
+    keyid = None
+
+    try:
+        parsed = BinaryData(sig_data)
+    except PgpdumpException as e:
+        raise SigError(e)
+
+    for x in parsed.packets():
+        if x.raw == 2:
+            for sub in x.subpackets:
+                if sub.subtype == 2:
+                    date = datetime.utcfromtimestamp(struct.unpack(">I", sub.data)[0])
+                if sub.subtype == 16:
+                    keyid = binascii.hexlify(sub.data).decode()
+
+    if keyid is None:
+        raise SigError("keyid missing")
+    if date is None:
+        raise SigError("date missing")
+
+    return Signature(keyid, date)
+
+
+def find_dbs(target_dir: str) -> list[str]:
+    """Recursively look for DB files"""
+
+    db_paths = set()
+    target_dir = os.path.realpath(target_dir)
+    for root, dirs, files in os.walk(target_dir):
+        for name in files:
+            if fnmatch.fnmatch(name, "*.db"):
+                db_paths.add(os.path.join(root, name))
+
+    return sorted(db_paths)
+
+
+def get_signature_paths(root_path: str, include_all: bool) -> list[str]:
+    if include_all:
+        return glob.glob(os.path.join(root_path, "**", "*.sig"))
+    dbs = find_dbs(root_path)
+    paths = set()
+    for db_path in dbs:
+        with ExtTarFile.open(db_path, mode="r") as tar:
+            for info in tar.getmembers():
+                file_name = info.name.rsplit("/", 1)[-1]
+                if file_name == "desc":
+                    infodata = tar.extractfile(info).read().decode()
+                    lines = infodata.splitlines()
+                    filename = lines[lines.index("%FILENAME%") + 1]
+                    paths.add(os.path.join(os.path.dirname(db_path), filename + ".sig"))
+    return sorted(paths)
+
+
+def list_stats(root_path: str, include_all: bool) -> None:
+    c = Counter()
+    for p in get_signature_paths(root_path, include_all):
+        with open(p, "rb") as h:
+            data = h.read()
+        sig = parse_signature(data)
+        c[sig.keyid] += 1
+
+    table_data = []
+    for keyid, count in c.most_common():
+        name = KNOWN_KEYS.get(keyid.upper(), "Unknown")
+        table_data.append([count, keyid, name])
+
+    headers = ["Count", "Key ID", "Name"]
+    print(tabulate(table_data, headers=headers))
+
+
+def list_keyid(root_path: str, include_all: bool, keyid: str) -> None:
+    table_data = []
+    for p in get_signature_paths(root_path, include_all):
+        with open(p, "rb") as h:
+            data = h.read()
+        sig = parse_signature(data)
+        if sig.keyid.upper() == keyid.upper():
+            table_data.append([sig.name, sig.date, os.path.relpath(p, root_path)])
+
+    table_data.sort(key=lambda x: x[1])
+    headers = ["Name", "Date", "Path"]
+    print(tabulate(table_data, headers=headers))
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="List info about the package signatures", allow_abbrev=False
+    )
+    parser.add_argument("root", help="path to root dir")
+    parser.add_argument("--id", help="list files for a speficic key id")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        default=False,
+        help="List all signature files, not just the ones in the repos",
+    )
+    args = parser.parse_args(argv[1:])
+
+    if args.id is None:
+        list_stats(args.root, args.all)
+    else:
+        list_keyid(args.root, args.all, args.id)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
