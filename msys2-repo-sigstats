@@ -87,7 +87,7 @@ def find_dbs(target_dir: str) -> list[str]:
 
 def get_signature_paths(root_path: str, include_all: bool) -> list[str]:
     if include_all:
-        return glob.glob(os.path.join(root_path, "**", "*.sig"))
+        return glob.glob(os.path.join(root_path, "**", "*.sig"), recursive=True)
     dbs = find_dbs(root_path)
     paths = set()
     for db_path in dbs:
