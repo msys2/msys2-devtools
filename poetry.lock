@@ -214,6 +214,17 @@ files = [
 test = ["pytest (>=6)"]
 
 [[package]]
+name = "fastprogress"
+version = "1.0.3"
+description = "A nested progress with plotting options for fastai"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "fastprogress-1.0.3-py3-none-any.whl", hash = "sha256:6dfea88f7a4717b0a8d6ee2048beae5dbed369f932a368c5dd9caff34796f7c5"},
+    {file = "fastprogress-1.0.3.tar.gz", hash = "sha256:7a17d2b438890f838c048eefce32c4ded47197ecc8ea042cecc33d3deb8022f5"},
+]
+
+[[package]]
 name = "flake8"
 version = "6.1.0"
 description = "the modular source code checker: pep8 pyflakes and co"
@@ -697,4 +708,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8.1"
-content-hash = "fd8c25ec28bf41e04e199f1428c8a2f512b9d3ef411ec6bd80788073b28f79a9"
+content-hash = "2356099e009916a64933ad1c3787d3b925e52b55e6d446f9a160cb99368525aa"

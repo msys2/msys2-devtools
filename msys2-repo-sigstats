@@ -14,6 +14,7 @@ from typing import NamedTuple, Iterator
 from pgpdump import BinaryData
 from pgpdump.utils import PgpdumpException
 from tabulate import tabulate
+from fastprogress.fastprogress import progress_bar
 
 from msys2_devtools.db import ExtTarFile
 
@@ -103,7 +104,7 @@ def get_signature_paths(root_path: str, include_all: bool) -> list[str]:
 
 
 def parse_signatures(paths: list[str]) -> Iterator[tuple[str, Signature]]:
-    for p in paths:
+    for p in progress_bar(paths, leave=False):
         with open(p, "rb") as h:
             data = h.read()
         yield (p, parse_signature(data))

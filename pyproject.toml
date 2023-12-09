@@ -15,6 +15,7 @@ zstandard = "^0.22.0"
 pyyaml = "^6.0"
 pydantic = "^2.0"
 pgpdump = "^1.5"
+fastprogress = "^1.0.3"
 
 [tool.poetry.scripts]
 msys2-srcinfo-cache = 'msys2_devtools.srcinfo_cache:run'
