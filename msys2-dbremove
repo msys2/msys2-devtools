@@ -31,6 +31,8 @@ update_packages() {
         mkdir -p "${staging}/${path}/"
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
         repo-remove -s -v "${staging}/${path}/${repo}.db.tar.zst" "${pkgs[@]}"
+        zstd --quiet --test "${staging}/${path}/${repo}.db.tar.zst"
+        zstd --quiet --test "${staging}/${path}/${repo}.files.tar.zst"
         gpg --verify "${staging}/${path}/${repo}.db.tar.zst.sig" "${staging}/${path}/${repo}.db.tar.zst"
         gpg --verify "${staging}/${path}/${repo}.files.tar.zst.sig" "${staging}/${path}/${repo}.files.tar.zst"
         mv "${staging}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${pub}/${path}/"
