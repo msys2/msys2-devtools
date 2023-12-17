@@ -29,9 +29,13 @@ def remove_all(args):
         print("Aborting")
         return
 
+    grouped = {}
     for repo, name in to_remove:
+        grouped.setdefault(repo, []).append(name)
+
+    for repo, names in grouped.items():
         subprocess.check_call([
-            shutil.which("bash"), os.path.join(DIR, "msys2-dbremove"), repo, name])
+            shutil.which("bash"), os.path.join(DIR, "msys2-dbremove"), repo, *names])
 
 
 def main(argv):
