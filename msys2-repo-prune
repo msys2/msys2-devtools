@@ -166,6 +166,24 @@ def get_files_to_prune(target_dir, time_delta):
         for group in group_by_package_name_and_ext(entries):
             paths_to_delete.update(group_get_paths_too_old(group, not_to_delete))
 
+    def get_related_files(path: str) -> list[str]:
+        """Returns a list of related files which should be deleted together with the given file"""
+
+        if not path.endswith(".sig"):
+            return [path + ".sig"]
+        else:
+            return [path[:-4]]
+
+    def related_also_to_delete(path: str) -> bool:
+        """Returns True if all related files are also to be deleted, or don't exist"""
+
+        for related in get_related_files(path):
+            if related not in paths_to_delete and os.path.exists(related):
+                return False
+        return True
+
+    paths_to_delete = set(p for p in paths_to_delete if related_also_to_delete(p))
+
     return paths_to_delete
 
 
