@@ -19,7 +19,7 @@ INSTALLER_KEYS=(
 REPO="/srv/msys2repo"
 
 verify_repo () {
-    if [[ ! -f "$REPO" ]]; then
+    if [[ ! -e "$REPO" ]]; then
         echo "$REPO is missing"
         exit 1
     fi
