@@ -99,6 +99,8 @@ def test_parse_user_agent():
 def test_get_windows_edition():
     ua = "pacman/6.0.1 (MSYS_NT-6.0-6002 x86_64) libalpm/13.0.1"
     assert get_windows_edition(parse_user_agent(ua)) == "Vista"
+    ua = "pacman/4.2.1-463-gbb493-dirty (MINGW32_NT-5.0 i686) libalpm/10.0.0"
+    assert get_windows_edition(parse_user_agent(ua)) == "2000"
 
 
 def get_windows_edition(ua: UserAgent):
@@ -107,6 +109,8 @@ def get_windows_edition(ua: UserAgent):
             return "11"
         else:
             return "10"
+    elif ua.windows_version == (5, 0):
+        return "2000"
     elif ua.windows_version == (5, 1):
         return "XP"
     elif ua.windows_version == (5, 2):
