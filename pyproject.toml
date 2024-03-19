@@ -16,10 +16,13 @@ pyyaml = "^6.0"
 pydantic = "^2.0"
 pgpdump = "^1.5"
 fastprogress = "^1.0.3"
+cyclonedx-python-lib = "^6.4.4"
+packageurl-python = "^0.15.0"
 
 [tool.poetry.scripts]
 msys2-srcinfo-cache = 'msys2_devtools.srcinfo_cache:run'
 msys2-pypi-cache = 'msys2_devtools.pypi_cache:run'
+msys2-sbom = 'msys2_devtools.sbom:run'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
