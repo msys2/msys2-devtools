@@ -70,6 +70,8 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
                     bom.components.add(component1)
                     bom.register_dependency(root_component, [component1])
                 elif extra_key == "cpe":
+                    if extra_value.startswith("cpe:"):
+                        extra_value = extra_value[4:]
                     if extra_value.startswith("2.3:"):
                         cpe = f"cpe:{extra_value}:{pkgver}:*:*:*:*:*:*:*"
                     else:
