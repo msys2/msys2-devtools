@@ -11,12 +11,18 @@ import json
 import gzip
 import logging
 import sys
+import re
 import argparse
 from typing import Dict, List
 
 from .pkgextra import extra_to_pkgextra_entry
 
 log = logging.getLogger(__name__)
+
+
+def normalize(name):
+    # https://packaging.python.org/en/latest/specifications/name-normalization/
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def get_project_names(srcinfo_path: str):
@@ -30,7 +36,7 @@ def get_project_names(srcinfo_path: str):
         if "extra" in entry:
             pkgextra = extra_to_pkgextra_entry(entry["extra"])
             if "pypi" in pkgextra.references:
-                names.append(pkgextra.references["pypi"])
+                names.append(normalize(pkgextra.references["pypi"]))
     return names
 
 
@@ -52,7 +58,7 @@ def get_all_serials() -> dict[str, int]:
     projects = index["projects"]
     serials = {}
     for project in projects:
-        serials[project["name"]] = project["_last-serial"]
+        serials[normalize(project["name"])] = project["_last-serial"]
     return serials
 
 
