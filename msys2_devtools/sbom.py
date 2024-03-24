@@ -81,6 +81,15 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
                     )
                     bom.components.add(component2)
                     bom.register_dependency(root_component, [component2])
+                elif extra_key == "purl":
+                    purl = PackageURL.from_string(extra_value + "@" + pkgver)
+                    component3 = Component(
+                        name=pkgbase,
+                        version=pkgver,
+                        purl=purl
+                    )
+                    bom.components.add(component3)
+                    bom.register_dependency(root_component, [component3])
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
