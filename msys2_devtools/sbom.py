@@ -50,6 +50,9 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
         cache = json.loads(gzip.decompress(h.read()))
 
     for value in cache.values():
+        if not value["srcinfo"].values():
+            continue
+
         pkgver = ""
         pkgbase = ""
         for srcinfo in value["srcinfo"].values():
@@ -58,11 +61,12 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
             pkgbase = [line for line in srcinfo.splitlines()
                        if line.strip().startswith("pkgbase = ")][0].split(" = ")[1].strip()
             break
+
+        purls = []
+        cpes = []
+
         if "extra" in value and "references" in value["extra"]:
             pkgextra = extra_to_pkgextra_entry(value["extra"])
-            purls = []
-            cpes = []
-
             for extra_key, extra_values in pkgextra["references"].items():
                 for extra_value in extra_values:
                     if extra_key == "pypi":
@@ -78,15 +82,22 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
                     elif extra_key == "purl":
                         purls.append(PackageURL.from_string(extra_value + "@" + pkgver))
 
-            for cpe in cpes:
-                component = Component(name=pkgbase, version=pkgver, cpe=cpe)
-                bom.components.add(component)
-                bom.register_dependency(root_component, [component])
+        cpes = []
+        purls = []
+        for cpe in cpes:
+            component = Component(name=pkgbase, version=pkgver, cpe=cpe)
+            bom.components.add(component)
+            bom.register_dependency(root_component, [component])
 
-            for purl in purls:
-                component = Component(name=pkgbase, version=pkgver, purl=purl)
-                bom.components.add(component)
-                bom.register_dependency(root_component, [component])
+        for purl in purls:
+            component = Component(name=pkgbase, version=pkgver, purl=purl)
+            bom.components.add(component)
+            bom.register_dependency(root_component, [component])
+
+        if not cpes and not purls:
+            component = Component(name=pkgbase, version=pkgver)
+            bom.components.add(component)
+            bom.register_dependency(root_component, [component])
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
