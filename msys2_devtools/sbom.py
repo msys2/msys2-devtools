@@ -12,8 +12,8 @@ from cyclonedx.model.component import Component, ComponentType
 from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
 
-def convert_mapping(array: Sequence[str]) -> dict[str, str | None]:
-    converted: dict[str, str | None] = {}
+def convert_mapping(array: Sequence[str]) -> dict[str, list[str | None]]:
+    converted: dict[str, list[str | None]] = {}
     for item in array:
         if ":" in item:
             key, value = item.split(":", 1)
@@ -21,7 +21,7 @@ def convert_mapping(array: Sequence[str]) -> dict[str, str | None]:
         else:
             key = item
             value = None
-        converted[key] = value
+        converted.setdefault(key, []).append(value)
     return converted
 
 
@@ -60,38 +60,33 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
             break
         if "extra" in value and "references" in value["extra"]:
             pkgextra = extra_to_pkgextra_entry(value["extra"])
-            for extra_key, extra_value in pkgextra["references"].items():
-                if extra_key == "pypi":
-                    component1 = Component(
-                        name=pkgbase,
-                        version=pkgver,
-                        purl=PackageURL('pypi', None, extra_value, pkgver)
-                    )
-                    bom.components.add(component1)
-                    bom.register_dependency(root_component, [component1])
-                elif extra_key == "cpe":
-                    if extra_value.startswith("cpe:"):
-                        extra_value = extra_value[4:]
-                    if extra_value.startswith("2.3:"):
-                        cpe = f"cpe:{extra_value}:{pkgver}:*:*:*:*:*:*:*"
-                    else:
-                        cpe = f"cpe:{extra_value}:{pkgver}"
-                    component2 = Component(
-                        name=pkgbase,
-                        cpe=cpe,
-                        version=pkgver
-                    )
-                    bom.components.add(component2)
-                    bom.register_dependency(root_component, [component2])
-                elif extra_key == "purl":
-                    purl = PackageURL.from_string(extra_value + "@" + pkgver)
-                    component3 = Component(
-                        name=pkgbase,
-                        version=pkgver,
-                        purl=purl
-                    )
-                    bom.components.add(component3)
-                    bom.register_dependency(root_component, [component3])
+            purls = []
+            cpes = []
+
+            for extra_key, extra_values in pkgextra["references"].items():
+                for extra_value in extra_values:
+                    if extra_key == "pypi":
+                        purls.append(PackageURL('pypi', None, extra_value, pkgver))
+                    elif extra_key == "cpe":
+                        if extra_value.startswith("cpe:"):
+                            extra_value = extra_value[4:]
+                        if extra_value.startswith("2.3:"):
+                            cpe = f"cpe:{extra_value}:{pkgver}:*:*:*:*:*:*:*"
+                        else:
+                            cpe = f"cpe:{extra_value}:{pkgver}"
+                        cpes.append(cpe)
+                    elif extra_key == "purl":
+                        purls.append(PackageURL.from_string(extra_value + "@" + pkgver))
+
+            for cpe in cpes:
+                component = Component(name=pkgbase, version=pkgver, cpe=cpe)
+                bom.components.add(component)
+                bom.register_dependency(root_component, [component])
+
+            for purl in purls:
+                component = Component(name=pkgbase, version=pkgver, purl=purl)
+                bom.components.add(component)
+                bom.register_dependency(root_component, [component])
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
