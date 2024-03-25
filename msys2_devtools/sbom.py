@@ -82,8 +82,6 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
                     elif extra_key == "purl":
                         purls.append(PackageURL.from_string(extra_value + "@" + pkgver))
 
-        cpes = []
-        purls = []
         for cpe in cpes:
             component = Component(name=pkgbase, version=pkgver, cpe=cpe)
             bom.components.add(component)
