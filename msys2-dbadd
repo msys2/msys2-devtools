@@ -42,26 +42,17 @@ update_packages() {
     local srcpath="${1}"
     shift
 
+    # Skip embedded signatures for everything but msys
+    # https://github.com/msys2/msys2-devtools/issues/5
+    local repo_options=()
+    if [ "${repo}" = "msys" ]; then
+        repo_options=(--include-sigs)
+    fi
+
     local files=( $(find "${staging}/${path}" -name "*.pkg.tar.*" -not -name "*.sig") )
     if [ "${#files[@]}" -gt 0 ]
     then
         echo "==> ${path}"
-
-        # Add embedded signatures for all core/runtime packages and msys2-keyring, so that pacman v5 users have a transition path
-        # https://github.com/msys2/msys2-devtools/issues/5
-        local include_sigs=(
-            "bash" "filesystem" "mintty" "msys2-runtime" "msys2-runtime-devel"
-            "pacman" "pacman-mirrors" "msys2-keyring" "msys2-runtime-3.4"
-            "msys2-runtime-3.3" "msys2-runtime-3.4-devel" "msys2-runtime-3.3-devel")
-        local package_basename="${path##*/}"
-        local package_name="$(echo "${package_basename}" | rev | cut -d"-" -f4- | rev)"
-        local repo_options=()
-        for sig_pkg in "${include_sigs[@]}"; do
-            if [[ "$package_name" == "$sig_pkg" ]]; then
-                repo_options=(--include-sigs)
-                break
-            fi
-        done
 
         cp "${pub}/${path}/${repo}".{db,files}{,.tar.zst}{,.sig} "${staging}/${path}/"
         repo-add "${repo_options[@]}" -n -p -s -v "${staging}/${path}/${repo}.db.tar.zst" "${files[@]}"
