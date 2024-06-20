@@ -2,7 +2,7 @@
 
 set -e
 
-host=repo@msys2.appfleet.io
+host=repo@repo.msys2.org
 
 # remote_gpga_socket="$(ssh "${host}" -- gpgconf --list-dirs agent-socket)"
 remote_gpga_socket="/home/repo/.gnupg/S.gpg-agent"
