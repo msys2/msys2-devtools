@@ -13,4 +13,4 @@ then
 else
 	args=(bash -lc "'\"\$@\"'" bash)
 fi
-exec ssh -tt -A -R "${remote_gpga_socket}:${local_gpga_socket}" "${host}" -- "${args[@]}" "${@}"
+exec ssh -tt -R "${remote_gpga_socket}:${local_gpga_socket}" "${host}" -- "${args[@]}" "${@}"
