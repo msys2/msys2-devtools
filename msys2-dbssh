@@ -2,10 +2,10 @@
 
 set -e
 
+# https://wiki.gnupg.org/AgentForwarding
 host=repo@repo.msys2.org
-
-# remote_gpga_socket="$(ssh "${host}" -- gpgconf --list-dirs agent-socket)"
-remote_gpga_socket="/home/repo/.gnupg/S.gpg-agent"
+local_gpga_socket="$(gpgconf --list-dirs agent-extra-socket)"
+remote_gpga_socket="$(ssh "${host}" -- gpgconf --list-dirs agent-socket)"
 
 if test "${#}" -eq 0
 then
@@ -13,4 +13,4 @@ then
 else
 	args=(bash -lc "'\"\$@\"'" bash)
 fi
-exec ssh -tt -A -R "${remote_gpga_socket}:$(gpgconf --list-dirs agent-extra-socket)" "${host}" -- "${args[@]}" "${@}"
+exec ssh -tt -A -R "${remote_gpga_socket}:${local_gpga_socket}" "${host}" -- "${args[@]}" "${@}"
