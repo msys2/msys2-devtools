@@ -16,7 +16,7 @@ pyyaml = "^6.0"
 pydantic = "^2.0"
 pgpdump = "^1.5"
 fastprogress = "^1.0.3"
-cyclonedx-python-lib = "^6.4.4"
+cyclonedx-python-lib = "^7.5.1"
 packageurl-python = "^0.15.0"
 
 [tool.poetry.scripts]
