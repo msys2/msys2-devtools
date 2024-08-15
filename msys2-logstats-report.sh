@@ -1,5 +1,5 @@
 #!/bin/bash
-# journalctl --since "7 days ago" --output=cat > logs.txt
+# journalctl CONTAINER_NAME=msys2-repo-traefik-1 --since "7 days ago" --output=cat > logs.txt
 
 set -e
 
