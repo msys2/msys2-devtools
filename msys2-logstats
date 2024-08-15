@@ -188,11 +188,12 @@ def main(argv):
         ci_networks = get_ci_networks()
 
     entries: List[LogEntry] = []
+    decoder = json.JSONDecoder()
     with args.infile as h:
         for line in h:
             if not line.startswith("{"):
                 continue
-            decoded = json.loads(line)
+            decoded = decoder.decode(line)
             if "RequestHost" not in decoded or "request_User-Agent" not in decoded:
                 continue
             entry = LogEntry(
