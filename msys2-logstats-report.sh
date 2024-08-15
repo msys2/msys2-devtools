@@ -3,7 +3,7 @@
 
 set -e
 
-LOGS=logs.txt
+LOGS="$1"
 OUTPUT=logs-report.md
 
 date -I > "$OUTPUT"
