@@ -5,6 +5,7 @@ import json
 import re
 import sys
 import argparse
+from datetime import datetime
 from collections import Counter
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
@@ -174,17 +175,149 @@ def get_ci_networks():
     return {"GHA": gha, "APPV": appveyor, "GCP": gcp, "AWS": aws, "AZ": azure}
 
 
+def get_repo_for_path(path: str) -> str:
+    repo = path.rsplit("/", 1)[0].lstrip("/")
+    if repo == "mingw/i686":
+        repo = "mingw/mingw32"
+    elif repo == "mingw/x86_64":
+        repo = "mingw/mingw64"
+
+    return repo
+
+
+def get_type_for_path(path: str) -> str:
+    if path.endswith(".db") or ".db." in path:
+        return "db"
+    elif path.endswith(".files") or ".files." in path:
+        return "db"
+    else:
+        return "pkg"
+
+
+def print_repos(entries, show_ci):
+    for request_type in ["pkg", "db"]:
+        type_requests = [e for e in entries if get_type_for_path(e.RequestPath) == request_type]
+        table = []
+        for (repo, type_, ci), count in Counter([
+                (get_repo_for_path(e.RequestPath), get_type_for_path(e.RequestPath),
+                 e.client_info.ci) for e in type_requests]).most_common():
+            pcnt = count / len(type_requests) * 100
+            line = [repo, type_, ci, f"{pcnt:.2f}%", f"{count}"]
+            if not show_ci:
+                line.pop(2)
+            table.append(line)
+        headers = ["Repo", "Type", "CI", "% Requests", "Requests"]
+        if not show_ci:
+            headers.pop(2)
+        print()
+        print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
+def print_windows_major(clients, entries, show_ci):
+    per_request = {}
+    for (edition, ci), count in Counter([(e.client_info.windows_edition, e.client_info.ci) for e in entries]).most_common():
+        per_request[(edition, ci)] = count
+    table = []
+    for (edition, ci), count_clients in Counter([(u.windows_edition, u.ci) for u in clients]).most_common():
+        pcnt_clients = count_clients / len(clients) * 100
+        count_req = per_request[(edition, ci)]
+        pcnt_req = count_req / len(entries) * 100
+        line = [edition, ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
+        if not show_ci:
+            line.pop(1)
+        table.append(line)
+    headers = ["Windows", "CI", "% Clients", "Clients", "% Requests", "Requests"]
+    if not show_ci:
+        headers.pop(1)
+    print()
+    print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
+def print_ci_systems(clients, entries):
+    per_request = {}
+    for ci, count in Counter([e.client_info.ci for e in entries]).most_common():
+        per_request[ci] = count
+    table = []
+    for ci, count_clients in Counter([u.ci for u in clients]).most_common():
+        pcnt_clients = count_clients / len(clients) * 100
+        count_req = per_request[ci]
+        pcnt_req = count_req / len(entries) * 100
+        line = [ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
+        table.append(line)
+    headers = ["CI", "% Clients", "Clients", "% Requests", "Requests"]
+    print()
+    print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
+def print_windows_version_details(clients, show_ci):
+    table = []
+    for (windows_version, build_number, ci), count in Counter(
+            [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
+        line = [".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(2)
+        table.append(line)
+    headers = ["Win Ver", "Build Number", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(2)
+    print()
+    print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
+def print_pacman(clients, show_ci):
+    table = []
+    for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
+        line = [version, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(1)
+        table.append(line)
+    headers = ["Pacman Ver", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(1)
+    print()
+    print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
+def print_system_arch(clients, show_ci):
+    table = []
+    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in clients]).most_common():
+        pcnt = count / len(clients) * 100
+        line = [cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"]
+        if not show_ci:
+            line.pop(2)
+        table.append(line)
+    headers = ["Arch", "WOW64", "CI", "% Clients", "Clients"]
+    if not show_ci:
+        headers.pop(2)
+    print()
+    print(tabulate(table, headers, stralign="right", numalign="right"))
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r', encoding="utf-8"), default=sys.stdin)
-    parser.add_argument('--ci', action='store_true', help='detect potential CI/cloud IP ranges')
+    parser.add_argument('--show-ci', action='store_true', help='show CI/cloud providers')
     parser.add_argument('--skip-ci', action='store_true', help='skip CI/cloud IP ranges')
+    parser.add_argument('--only-ci', action='store_true', help='only CI/cloud IP ranges')
+    parser.add_argument('--show-summary', action='store_true', help='show only a CI/cloud summary')
     args = parser.parse_args(argv[1:])
 
-    if args.skip_ci:
-        args.ci = True
+    assert not (args.skip_ci and args.only_ci)
 
-    if args.ci:
+    detect_ci = False
+
+    if args.show_summary:
+        assert not args.skip_ci
+        assert not args.only_ci
+        args.show_ci = True
+        detect_ci = True
+
+    if args.skip_ci or args.only_ci:
+        detect_ci = True
+
+    if detect_ci:
         ci_networks = get_ci_networks()
 
     entries: List[LogEntry] = []
@@ -232,25 +365,8 @@ def main(argv):
         key = user_key(entry)
         grouped.setdefault(key, []).append(entry)
 
-    def get_repo_for_path(path: str) -> str:
-        repo = path.rsplit("/", 1)[0].lstrip("/")
-        if repo == "mingw/i686":
-            repo = "mingw/mingw32"
-        elif repo == "mingw/x86_64":
-            repo = "mingw/mingw64"
-
-        return repo
-
-    def get_type_for_path(path: str) -> str:
-        if path.endswith(".db") or ".db." in path:
-            return "db"
-        elif path.endswith(".files") or ".files." in path:
-            return "db"
-        else:
-            return "pkg"
-
     ip_to_ci = {}
-    if args.ci:
+    if detect_ci:
         def get_ip_to_ci(ip_addr: str) -> str:
             ip = IPAddress(ip_addr)
             for name, ipset in ci_networks.items():
@@ -282,111 +398,44 @@ def main(argv):
         entries = [e for e in entries if not ip_to_ci.get(e.ClientHost, "")]
         clients = [c for c in clients if not c.ci]
 
-    show_ci = args.ci and not args.skip_ci
+    if args.only_ci:
+        entries = [e for e in entries if ip_to_ci.get(e.ClientHost, "")]
+        clients = [c for c in clients if c.ci]
 
     # Log info
+    diff = datetime.fromisoformat(last) - datetime.fromisoformat(first)
+    duration = (diff).total_seconds()
+    requests_per_second = len(entries) / duration
     print(tabulate([
-        ["Start", first],
-        ["End", last],
-        ["Requests", len(entries)],
-        ["Clients", f"{len(clients)} (Clients are grouped by IP+WinVer+Arch, which is far from perfect)"],
+        ["Duration", f"from {first} to {last} ({diff})"],
+        ["Requests", f"{len(entries)} ({requests_per_second:.2f}/s)"],
+        ["Clients", f"{len(clients)} (clients are grouped by IP+WinVer+Arch)"],
+        ["Included", "CI only" if args.only_ci else "non-CI only" if args.skip_ci else "all"],
     ]))
 
     # Repos
-    for request_type in ["pkg", "db"]:
-        type_requests = [e for e in entries if get_type_for_path(e.RequestPath) == request_type]
-        table = []
-        for (repo, type_, ci), count in Counter([
-                (get_repo_for_path(e.RequestPath), get_type_for_path(e.RequestPath),
-                 e.client_info.ci) for e in type_requests]).most_common():
-            pcnt = count / len(type_requests) * 100
-            line = [repo, type_, ci, f"{pcnt:.2f}%", f"{count}"]
-            if not show_ci:
-                line.pop(2)
-            table.append(line)
-        headers = ["Repo", "Type", "CI", "% Requests", "Requests"]
-        if not show_ci:
-            headers.pop(2)
-        print()
-        print(tabulate(table, headers, stralign="right", numalign="right"))
+    if not args.show_summary:
+        print_repos(entries, args.show_ci)
 
     # CI Systems
-    if show_ci:
-        per_request = {}
-        for ci, count in Counter([e.client_info.ci for e in entries]).most_common():
-            per_request[ci] = count
-        table = []
-        for ci, count_clients in Counter([u.ci for u in clients]).most_common():
-            pcnt_clients = count_clients / len(clients) * 100
-            count_req = per_request[ci]
-            pcnt_req = count_req / len(entries) * 100
-            line = [ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
-            table.append(line)
-        headers = ["CI", "% Clients", "Clients", "% Requests", "Requests"]
-        print()
-        print(tabulate(table, headers, stralign="right", numalign="right"))
+    if args.show_ci:
+        print_ci_systems(clients, entries)
 
     # Windows versions
-    per_request = {}
-    for (edition, ci), count in Counter([(e.client_info.windows_edition, e.client_info.ci) for e in entries]).most_common():
-        per_request[(edition, ci)] = count
-    table = []
-    for (edition, ci), count_clients in Counter([(u.windows_edition, u.ci) for u in clients]).most_common():
-        pcnt_clients = count_clients / len(clients) * 100
-        count_req = per_request[(edition, ci)]
-        pcnt_req = count_req / len(entries) * 100
-        line = [edition, ci, f"{pcnt_clients:.2f}%", f"{count_clients}", f"{pcnt_req:.2f}%", f"{count_req}"]
-        if not show_ci:
-            line.pop(1)
-        table.append(line)
-    headers = ["Windows", "CI", "% Clients", "Clients", "% Requests", "Requests"]
-    if not show_ci:
-        headers.pop(1)
-    print()
-    print(tabulate(table, headers, stralign="right", numalign="right"))
+    if not args.show_summary:
+        print_windows_major(clients, entries, args.show_ci)
 
     # Windows versions detailed
-    table = []
-    for (windows_version, build_number, ci), count in Counter(
-            [(u.user_agent.windows_version, u.user_agent.build_number, u.ci) for u in clients]).most_common():
-        pcnt = count / len(clients) * 100
-        line = [".".join(map(str, windows_version)), build_number, ci, f"{pcnt:.2f}%", f"{count}"]
-        if not show_ci:
-            line.pop(2)
-        table.append(line)
-    headers = ["Win Ver", "Build Number", "CI", "% Clients", "Clients"]
-    if not show_ci:
-        headers.pop(2)
-    print()
-    print(tabulate(table, headers, stralign="right", numalign="right"))
+    if not args.show_summary:
+        print_windows_version_details(clients, args.show_ci)
 
     # Pacman
-    table = []
-    for (version, ci), count in Counter([(u.pacman_version, u.ci) for u in clients]).most_common():
-        pcnt = count / len(clients) * 100
-        line = [version, ci, f"{pcnt:.2f}%", f"{count}"]
-        if not show_ci:
-            line.pop(1)
-        table.append(line)
-    headers = ["Pacman Ver", "CI", "% Clients", "Clients"]
-    if not show_ci:
-        headers.pop(1)
-    print()
-    print(tabulate(table, headers, stralign="right", numalign="right"))
+    if not args.show_summary:
+        print_pacman(clients, args.show_ci)
 
     # CPU Arch
-    table = []
-    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in clients]).most_common():
-        pcnt = count / len(clients) * 100
-        line = [cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"]
-        if not show_ci:
-            line.pop(2)
-        table.append(line)
-    headers = ["Arch", "WOW64", "CI", "% Clients", "Clients"]
-    if not show_ci:
-        headers.pop(2)
-    print()
-    print(tabulate(table, headers, stralign="right", numalign="right"))
+    if not args.show_summary:
+        print_system_arch(clients, args.show_ci)
 
 
 if __name__ == "__main__":
