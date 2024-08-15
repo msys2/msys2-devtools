@@ -295,6 +295,13 @@ def print_system_arch(clients, show_ci):
     print(tabulate(table, headers, stralign="right", numalign="right"))
 
 
+def datetime_fromisoformat(value: str) -> datetime:
+    # For Python <3.11
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r', encoding="utf-8"), default=sys.stdin)
@@ -403,7 +410,7 @@ def main(argv):
         clients = [c for c in clients if c.ci]
 
     # Log info
-    diff = datetime.fromisoformat(last) - datetime.fromisoformat(first)
+    diff = datetime_fromisoformat(last) - datetime_fromisoformat(first)
     duration = (diff).total_seconds()
     requests_per_second = len(entries) / duration
     print(tabulate([
