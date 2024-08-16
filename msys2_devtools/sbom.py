@@ -11,6 +11,8 @@ from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType
 from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
+from .srcinfo import parse_srcinfo
+
 
 def convert_mapping(array: Sequence[str]) -> dict[str, list[str | None]]:
     converted: dict[str, list[str | None]] = {}
@@ -56,10 +58,9 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
         pkgver = ""
         pkgbase = ""
         for srcinfo in value["srcinfo"].values():
-            pkgver = [line for line in srcinfo.splitlines()
-                      if line.strip().startswith("pkgver = ")][0].split(" = ")[1].strip()
-            pkgbase = [line for line in srcinfo.splitlines()
-                       if line.strip().startswith("pkgbase = ")][0].split(" = ")[1].strip()
+            base = parse_srcinfo(srcinfo)[0]
+            pkgver = base["pkgver"][0]
+            pkgbase = base["pkgbase"][0]
             break
 
         purls = []
