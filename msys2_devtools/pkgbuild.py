@@ -20,7 +20,7 @@ def get_extra_meta_for_pkgbuild(msys2_root: str, pkgbuild_path: str) -> \
     meta = {}
     for key, value in data.items():
         if key == "mingw_arch":
-            key = "msys2_environments"
+            key = "msys2_arch"
         if key.startswith("msys2_"):
             key = key.split("_", 1)[-1]
             meta[key] = value
