@@ -60,11 +60,14 @@ then
 elif [ "${repo}" = "clangarm64" ]
 then
     update_packages clangarm64 "mingw/clangarm64" "${@}"
+elif [ "${repo}" = "mingwarm64" ]
+then
+    update_packages mingwarm64 "mingw/mingwarm64" "${@}"
 elif [ "${repo}" = "msys" ]
 then
     update_packages msys "msys/x86_64" "${@}"
 else
-    echo "Missing or unrecognized first argument: msys|mingw32|mingw64|ucrt64|clang64|clang32|clangarm64" >&2
+    echo "Missing or unrecognized first argument: msys|mingw32|mingw64|ucrt64|clang64|clang32|clangarm64|mingwarm64" >&2
     exit 1
 fi
 
