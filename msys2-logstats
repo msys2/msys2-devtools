@@ -33,8 +33,8 @@ class UserAgent:
     pacman_version: Tuple[int, int, int]
     windows_version: Tuple[int, int]
     build_number: int
-    is_wow64: bool
-    cpu_arch: str
+    cygwin_arch: str
+    host_arch: str
     libalpm_version: Tuple[int, int, int]
 
 
@@ -42,8 +42,6 @@ class UserAgent:
 class ClientInfo:
     pacman_version: str
     windows_edition: str
-    cpu_arch: str
-    is_wow64: str
     user_agent: UserAgent
     ci: str
 
@@ -56,21 +54,28 @@ def parse_user_agent(ua: str) -> UserAgent:
     assert is_valid_user_agent(ua)
     m = re.match(r"pacman/([^\s]+) \(([^-]+)-([^-]+)-?([0-9]+|)-?(.+|) ([^)]+)\) libalpm/(.+)", ua)
     assert m is not None
-    pacman_version, _, windows_version, build_number, wow64, arch, alpm_version = m.groups()
+    pacman_version, _, windows_version, build_number, extra, arch, alpm_version = m.groups()
 
     pacman_version = tuple(map(int, pacman_version.split("-")[0].split(".")))
     windows_version = tuple(map(int, windows_version.split(".")))
     build_number = int(build_number or "-1")
-    is_wow64 = bool(wow64)
-    cpu_arch = arch
+    cygwin_arch = arch
+    if extra in ("WOW64", "WOW") and cygwin_arch == "i686":
+        host_arch = "x86_64"
+    elif extra == "ARM64":
+        host_arch = "aarch64"
+    elif extra:
+        host_arch = "???"
+    else:
+        host_arch = cygwin_arch
     alpm_version = tuple(map(int, alpm_version.split(".")))
 
     return UserAgent(
         pacman_version,
         windows_version,
         build_number,
-        is_wow64,
-        cpu_arch,
+        cygwin_arch,
+        host_arch,
         alpm_version
     )
 
@@ -79,22 +84,31 @@ def test_parse_user_agent():
     ua = "pacman/6.0.1 (MSYS_NT-10.0-19042 x86_64) libalpm/13.0.1"
     assert parse_user_agent(ua).pacman_version == (6, 0, 1)
     ua = "pacman/6.0.1 (MSYS_NT-10.0-19042-WOW64 i686) libalpm/13.0.1"
-    assert parse_user_agent(ua).is_wow64
+    assert parse_user_agent(ua).cygwin_arch == "i686"
+    assert parse_user_agent(ua).host_arch == "x86_64"
     assert parse_user_agent(ua).build_number == 19042
     ua = "pacman/5.2.1 (MSYS_NT-6.1-7601-WOW64 i686) libalpm/12.0.1"
-    assert parse_user_agent(ua).is_wow64
+    assert parse_user_agent(ua).cygwin_arch == "i686"
+    assert parse_user_agent(ua).host_arch == "x86_64"
     assert parse_user_agent(ua).build_number == 7601
     ua = "pacman/5.1.0 (MINGW64_NT-10.0 x86_64) libalpm/11.0.0"
     assert parse_user_agent(ua).build_number == -1
-    assert parse_user_agent(ua).cpu_arch == "x86_64"
+    assert parse_user_agent(ua).cygwin_arch == "x86_64"
+    assert parse_user_agent(ua).host_arch == "x86_64"
     ua = "pacman/5.0.1 (UCRT64_NT-10.0-WOW i686) libalpm/10.0.1"
     assert parse_user_agent(ua).build_number == -1
-    assert parse_user_agent(ua).is_wow64
-    assert parse_user_agent(ua).cpu_arch == "i686"
+    assert parse_user_agent(ua).host_arch == "x86_64"
+    assert parse_user_agent(ua).cygwin_arch == "i686"
     ua = "pacman/4.2.1-313-g5535-dirty (MINGW64_NT-6.1 x86_64) libalpm/9.0.1"
     assert parse_user_agent(ua).pacman_version == (4, 2, 1)
     ua = "pacman/6.0.1 (MSYS_NT-6.0-6002 x86_64) libalpm/13.0.1"
     assert parse_user_agent(ua).windows_version == (6, 0)
+    ua = "pacman/6.1.0 (MSYS_NT-10.0-22631-ARM64 x86_64) libalpm/14.0.0"
+    assert parse_user_agent(ua).host_arch == "aarch64"
+    assert parse_user_agent(ua).cygwin_arch == "x86_64"
+    ua = "pacman/6.1.0 (MSYS_NT-10.0-22631-ARM64 i686) libalpm/14.0.0"
+    assert parse_user_agent(ua).host_arch == "aarch64"
+    assert parse_user_agent(ua).cygwin_arch == "i686"
 
 
 def test_get_windows_edition():
@@ -282,13 +296,13 @@ def print_pacman(clients, show_ci):
 
 def print_system_arch(clients, show_ci):
     table = []
-    for (cpu_arch, is_wow64, ci), count in Counter([(u.cpu_arch, u.is_wow64, u.ci) for u in clients]).most_common():
+    for (cygwin_arch, host_arch, ci), count in Counter([(u.user_agent.cygwin_arch, u.user_agent.host_arch, u.ci) for u in clients]).most_common():
         pcnt = count / len(clients) * 100
-        line = [cpu_arch, is_wow64, ci, f"{pcnt:.2f}%", f"{count}"]
+        line = [cygwin_arch, host_arch, ci, f"{pcnt:.2f}%", f"{count}"]
         if not show_ci:
             line.pop(2)
         table.append(line)
-    headers = ["Arch", "WOW64", "CI", "% Clients", "Clients"]
+    headers = ["Cygwin Arch", "Host Arch", "CI", "% Clients", "Clients"]
     if not show_ci:
         headers.pop(2)
     print()
@@ -392,8 +406,6 @@ def main(argv):
         client_info = ClientInfo(
             ".".join(map(str, user_agent.pacman_version)),
             get_windows_edition(user_agent),
-            user_agent.cpu_arch,
-            str(user_agent.is_wow64),
             user_agent,
             ci
         )
