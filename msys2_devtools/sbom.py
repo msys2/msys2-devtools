@@ -176,8 +176,12 @@ def handle_merge_command(args) -> None:
         return (component.name, component.version, component.purl, cpe_key)
 
     for component in src_bom.components:
+        assert isinstance(component, Component)
         key = get_component_key(component)
-        properties[key] = component.properties
+        if key not in properties:
+            properties[key] = component.properties
+        else:
+            properties[key].update(component.properties)
 
     with open(args.target_sbom, "r", encoding="utf-8") as h:
         target_bom: Bom = Bom.from_json(json.loads(h.read()))
