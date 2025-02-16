@@ -62,6 +62,64 @@ def parse_cpe(cpe: str) -> tuple[str, str]:
         raise ValueError("unknown cpe format")
 
 
+def generate_components(value) -> list[Component]:
+    components = []
+
+    if not value["srcinfo"].values():
+        return components
+
+    pkgver = ""
+    pkgbase = ""
+    for srcinfo in value["srcinfo"].values():
+        base = parse_srcinfo(srcinfo)[0]
+        pkgver = extract_upstream_version(base["pkgver"][0])
+        pkgbase = base["pkgbase"][0]
+        break
+
+    purls: list[PackageURL] = []
+    cpes: list[str] = []
+    properties = [Property(name="msys2:pkgbase", value=pkgbase)]
+
+    if "extra" in value and "references" in value["extra"]:
+        pkgextra = extra_to_pkgextra_entry(value["extra"])
+        for extra_key, extra_values in pkgextra["references"].items():
+            for extra_value in extra_values:
+                if extra_key == "pypi":
+                    purls.append(PackageURL('pypi', None, extra_value, pkgver))
+                elif extra_key == "cpe":
+                    if extra_value.startswith("cpe:"):
+                        extra_value = extra_value[4:]
+                    if extra_value.startswith("2.3:"):
+                        cpe = f"cpe:{extra_value}:*:*:*:*:*:*:*:*"
+                    else:
+                        cpe = f"cpe:{extra_value}:"
+                    cpes.append(cpe)
+                elif extra_key == "purl":
+                    purl = PackageURL.from_string(extra_value)
+                    if purl.version is None:
+                        purl = PackageURL(**{**purl.to_dict(), "version": pkgver})
+                    purls.append(purl)
+
+    for cpe in cpes:
+        name = parse_cpe(cpe)[1]
+        component = Component(name=name, version=pkgver, cpe=cpe, properties=properties)
+        components.append(component)
+
+    for purl in purls:
+        component = Component(name=purl.name, version=purl.version, purl=purl, properties=properties)
+        components.append(component)
+
+    if not cpes and not purls:
+        if pkgbase.startswith("mingw-w64-"):
+            name = pkgbase.split("-", 2)[-1]
+        else:
+            name = pkgbase
+        component = Component(name=name, version=pkgver, properties=properties)
+        components.append(component)
+
+    return components
+
+
 def write_sbom(srcinfo_cache: str, sbom: str) -> None:
     bom = Bom()
     bom.metadata.component = root_component = Component(
@@ -74,55 +132,8 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
         cache = json.loads(gzip.decompress(h.read()))
 
     for value in cache.values():
-        if not value["srcinfo"].values():
-            continue
-
-        pkgver = ""
-        pkgbase = ""
-        for srcinfo in value["srcinfo"].values():
-            base = parse_srcinfo(srcinfo)[0]
-            pkgver = extract_upstream_version(base["pkgver"][0])
-            pkgbase = base["pkgbase"][0]
-            break
-
-        purls: list[PackageURL] = []
-        cpes: list[str] = []
-        properties = [Property(name="msys2:pkgbase", value=pkgbase)]
-
-        if "extra" in value and "references" in value["extra"]:
-            pkgextra = extra_to_pkgextra_entry(value["extra"])
-            for extra_key, extra_values in pkgextra["references"].items():
-                for extra_value in extra_values:
-                    if extra_key == "pypi":
-                        purls.append(PackageURL('pypi', None, extra_value, pkgver))
-                    elif extra_key == "cpe":
-                        if extra_value.startswith("cpe:"):
-                            extra_value = extra_value[4:]
-                        if extra_value.startswith("2.3:"):
-                            cpe = f"cpe:{extra_value}:*:*:*:*:*:*:*:*"
-                        else:
-                            cpe = f"cpe:{extra_value}:"
-                        cpes.append(cpe)
-                    elif extra_key == "purl":
-                        purls.append(PackageURL.from_string(extra_value + "@" + pkgver))
-
-        for cpe in cpes:
-            name = parse_cpe(cpe)[1]
-            component = Component(name=name, version=pkgver, cpe=cpe, properties=properties)
-            bom.components.add(component)
-            bom.register_dependency(root_component, [component])
-
-        for purl in purls:
-            component = Component(name=purl.name, version=pkgver, purl=purl, properties=properties)
-            bom.components.add(component)
-            bom.register_dependency(root_component, [component])
-
-        if not cpes and not purls:
-            if pkgbase.startswith("mingw-w64-"):
-                name = pkgbase.split("-", 2)[-1]
-            else:
-                name = pkgbase
-            component = Component(name=name, version=pkgver, properties=properties)
+        components = generate_components(value)
+        for component in components:
             bom.components.add(component)
             bom.register_dependency(root_component, [component])
 
