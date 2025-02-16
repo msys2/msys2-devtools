@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         pipx install poetry
-        poetry install
+        poetry install -Eall
 
     - name: Run tests
       run: |
