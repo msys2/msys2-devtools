@@ -15,6 +15,8 @@ import re
 import argparse
 from typing import Dict, List
 
+from packageurl import PackageURL
+
 from .pkgextra import extra_to_pkgextra_entry
 
 log = logging.getLogger(__name__)
@@ -39,6 +41,12 @@ def get_project_names(srcinfo_path: str):
                 for value in pkgextra.references["pypi"]:
                     if value is not None:
                         names.append(normalize(value))
+            if "purl" in pkgextra.references:
+                for value in pkgextra.references["purl"]:
+                    if value is not None:
+                        purl = PackageURL.from_string(value)
+                        if purl.type == "pypi":
+                            names.append(normalize(purl.name))
     return names
 
 

@@ -447,7 +447,7 @@ description = "A purl aka. Package URL parser and builder"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"sbom\" or extra == \"all\""
+markers = "extra == \"sbom\" or extra == \"all\" or extra == \"pypi-cache\""
 files = [
     {file = "packageurl_python-0.16.0-py3-none-any.whl", hash = "sha256:5c3872638b177b0f1cf01c3673017b7b27ebee485693ae12a8bed70fa7fa7c35"},
     {file = "packageurl_python-0.16.0.tar.gz", hash = "sha256:69e3bf8a3932fe9c2400f56aaeb9f86911ecee2f9398dbe1b58ec34340be365d"},
@@ -1027,10 +1027,11 @@ cffi = ["cffi (>=1.11)"]
 [extras]
 all = ["cyclonedx-python-lib", "fastprogress", "netaddr", "packageurl-python", "pgpdump", "requests-cache"]
 logstats = ["netaddr", "requests-cache"]
+pypi-cache = ["packageurl-python"]
 sbom = ["cyclonedx-python-lib", "packageurl-python"]
 sigstats = ["fastprogress", "pgpdump"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "73dcd1859a68497f38eec7f7daaed1f8f925f09bf903808696ff92e28ddfac68"
+content-hash = "aa0700256ee428be0ffabe805489c7afe03a3006f11e062cc53b192d8e74fb12"

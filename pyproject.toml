@@ -23,6 +23,7 @@ requests-cache = { version = "^1.2.1", optional = true }
 sbom = ["cyclonedx-python-lib", "packageurl-python"]
 logstats = ["netaddr", "requests-cache"]
 sigstats = ["pgpdump", "fastprogress"]
+pypi-cache = ["packageurl-python"]
 all = ["cyclonedx-python-lib", "packageurl-python", "netaddr", "pgpdump", "fastprogress", "requests-cache"]
 
 [tool.poetry.scripts]
