@@ -8,7 +8,7 @@ class PkgExtraEntry(BaseModel):
     internal: bool = Field(default=False)
     """If the package is MSYS2 internal or just a meta package"""
 
-    references: Dict[str, Optional[str]] = Field(default_factory=dict)
+    references: Dict[str, list[Optional[str]]] = Field(default_factory=dict)
     """References to third party repositories"""
 
     changelog_url: Optional[str] = Field(default=None)
@@ -30,14 +30,8 @@ class PkgExtraEntry(BaseModel):
     """A website containing which keys are used to sign releases"""
 
 
-class PkgExtra(BaseModel):
-
-    packages: Dict[str, PkgExtraEntry]
-    """A mapping of pkgbase names to PkgExtraEntry"""
-
-
-def convert_mapping(array: Sequence[str]) -> Dict[str, Optional[str]]:
-    converted: Dict[str, Optional[str]] = {}
+def convert_mapping(array: Sequence[str]) -> dict[str, list[str | None]]:
+    converted: dict[str, list[str | None]] = {}
     for item in array:
         if ":" in item:
             key, value = item.split(":", 1)
@@ -45,7 +39,7 @@ def convert_mapping(array: Sequence[str]) -> Dict[str, Optional[str]]:
         else:
             key = item
             value = None
-        converted[key] = value
+        converted.setdefault(key, []).append(value)
     return converted
 
 

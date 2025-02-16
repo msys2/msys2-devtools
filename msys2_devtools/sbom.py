@@ -5,7 +5,6 @@ import logging
 import json
 import gzip
 from urllib.parse import unquote
-from typing import Collection, Sequence, List
 
 from packageurl import PackageURL
 from cyclonedx.model.bom import Bom
@@ -13,32 +12,7 @@ from cyclonedx.model.component import Component, ComponentType, Property
 from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
 from .srcinfo import parse_srcinfo
-
-
-def convert_mapping(array: Sequence[str]) -> dict[str, list[str | None]]:
-    converted: dict[str, list[str | None]] = {}
-    for item in array:
-        if ":" in item:
-            key, value = item.split(":", 1)
-            value = value.strip()
-        else:
-            key = item
-            value = None
-        converted.setdefault(key, []).append(value)
-    return converted
-
-
-def extra_to_pkgextra_entry(data: dict[str, str | Collection[str]]) -> dict:
-    mappings = ["references"]
-
-    data = dict(data)
-    for key in mappings:
-        if key in data:
-            value = data[key]
-            assert isinstance(value, list)
-            data[key] = convert_mapping(value)
-
-    return data
+from .pkgextra import extra_to_pkgextra_entry
 
 
 def extract_upstream_version(version: str) -> str:
@@ -82,8 +56,10 @@ def generate_components(value) -> list[Component]:
 
     if "extra" in value and "references" in value["extra"]:
         pkgextra = extra_to_pkgextra_entry(value["extra"])
-        for extra_key, extra_values in pkgextra["references"].items():
+        for extra_key, extra_values in pkgextra.references.items():
             for extra_value in extra_values:
+                if extra_value is None:
+                    continue
                 if extra_key == "pypi":
                     purls.append(PackageURL('pypi', None, extra_value, pkgver))
                 elif extra_key == "cpe":
@@ -225,7 +201,7 @@ def add_merge_subcommand(subparsers) -> None:
     parser.set_defaults(func=handle_merge_command)
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(description="SBOM tools", allow_abbrev=False)
     subparsers = parser.add_subparsers(dest="command", required=True)
 

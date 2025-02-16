@@ -36,7 +36,9 @@ def get_project_names(srcinfo_path: str):
         if "extra" in entry:
             pkgextra = extra_to_pkgextra_entry(entry["extra"])
             if "pypi" in pkgextra.references:
-                names.append(normalize(pkgextra.references["pypi"]))
+                for value in pkgextra.references["pypi"]:
+                    if value is not None:
+                        names.append(normalize(value))
     return names
 
 
