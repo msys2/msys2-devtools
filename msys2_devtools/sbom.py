@@ -4,7 +4,7 @@ import argparse
 import logging
 import json
 import gzip
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 
 from packageurl import PackageURL
 from cyclonedx.model.bom import Bom
@@ -24,16 +24,79 @@ def extract_upstream_version(version: str) -> str:
         "-")[0].split("+", 1)[0].split("~", 1)[-1].split(":", 1)[-1]
 
 
-def parse_cpe(cpe: str) -> tuple[str, str]:
-    """Parse a CPE string into a tuple of vendor and product."""
+def parse_cpe22(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
+    if not cpe.startswith("cpe:/"):
+        raise ValueError("invalid cpe format")
+    components = [unquote(v) if v else None for v in cpe[5:].split(":")]
+    while len(components) < 4:
+        components.append(None)
+    return tuple(components[:4])
+
+
+def parse_cpe23(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
+    """Parse a CPE 2.3 string, also partial CPEs and missing components are treated as ANY."""
+
+    if not cpe.startswith("cpe:2.3:"):
+        raise ValueError("invalid cpe format")
+
+    def split_and_unquote(s: str) -> list[str]:
+        result = []
+        current = ''
+        escape = False
+        lastescaped = False
+        for c in s:
+            if escape:
+                current += c
+                escape = False
+                lastescaped = True
+            elif c == '\\':
+                escape = True
+                lastescaped = False
+            elif c == ':':
+                result.append(None if (current == "*" and not lastescaped) else current)
+                current = ''
+                lastescaped = False
+            else:
+                current += c
+                lastescaped = False
+        if current:
+            result.append(None if (current == "*" and not lastescaped) else current)
+        return result
+
+    components = split_and_unquote(cpe[8:])
+    while len(components) < 4:
+        components.append(None)
+    return tuple(components[:4])
+
+
+def parse_cpe(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
+    """Parse a CPE string into a tuple for the first four components. None means ANY."""
 
     if cpe.startswith("cpe:2.3:"):
-        # FIXME: properly handle escaping
-        return tuple([v.replace("\\", "") for v in cpe.split(":")[3:5]])
+        return parse_cpe23(cpe)
     elif cpe.startswith("cpe:/"):
-        return tuple([unquote(v) for v in cpe.split(":")[2:4]])
+        return parse_cpe22(cpe)
     else:
         raise ValueError("unknown cpe format")
+
+
+def build_cpe22(part: str | None, vendor: str | None, product: str | None, version: str | None) -> str:
+    """Build a CPE 2.2 URI"""
+
+    components = []
+
+    def add(v: str | None) -> str:
+        if v is None:
+            components.append("")
+        else:
+            components.append(quote(v))
+
+    add(part)
+    add(vendor)
+    add(product)
+    add(version)
+
+    return ("cpe:/" + ":".join(components)).rstrip(":")
 
 
 def generate_components(value) -> list[Component]:
@@ -63,12 +126,12 @@ def generate_components(value) -> list[Component]:
                 if extra_key == "pypi":
                     purls.append(PackageURL('pypi', None, extra_value, pkgver))
                 elif extra_key == "cpe":
-                    if extra_value.startswith("cpe:"):
-                        extra_value = extra_value[4:]
-                    if extra_value.startswith("2.3:"):
-                        cpe = f"cpe:{extra_value}:*:*:*:*:*:*:*:*"
-                    else:
-                        cpe = f"cpe:{extra_value}:"
+                    parsed = parse_cpe(extra_value)
+                    if parsed[3] is None:
+                        parsed = (*parsed[:3], pkgver)
+                    if any(v is None for v in parsed):
+                        raise ValueError("CPE must have a part, product, name and version")
+                    cpe = build_cpe22(*parsed)
                     cpes.append(cpe)
                 elif extra_key == "purl":
                     purl = PackageURL.from_string(extra_value)
@@ -77,8 +140,9 @@ def generate_components(value) -> list[Component]:
                     purls.append(purl)
 
     for cpe in cpes:
-        name = parse_cpe(cpe)[1]
-        component = Component(name=name, version=pkgver, cpe=cpe, properties=properties)
+        name, version = parse_cpe(cpe)[2:4]
+        assert version is not None and name is not None
+        component = Component(name=name, version=version, cpe=cpe, properties=properties)
         components.append(component)
 
     for purl in purls:
