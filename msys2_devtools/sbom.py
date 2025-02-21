@@ -223,7 +223,7 @@ def handle_merge_command(args) -> None:
     def get_component_key(component: Component) -> str:
         cpe_key = None
         if component.cpe is not None:
-            cpe_key = parse_cpe(component.cpe)
+            cpe_key = parse_cpe(component.cpe.lower())
         return (component.name, component.version, component.purl, cpe_key)
 
     for component in src_bom.components:
