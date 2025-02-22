@@ -123,9 +123,7 @@ def generate_components(value) -> list[Component]:
             for extra_value in extra_values:
                 if extra_value is None:
                     continue
-                if extra_key == "pypi":
-                    purls.append(PackageURL('pypi', None, extra_value, pkgver))
-                elif extra_key == "cpe":
+                if extra_key == "cpe":
                     parsed = parse_cpe(extra_value)
                     if parsed[3] is None:
                         parsed = (*parsed[:3], pkgver)
