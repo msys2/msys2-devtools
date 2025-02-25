@@ -15,7 +15,7 @@ CPENA = CPESpecial.NA
 def parse_cpe22(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
     """Parse a CPE 2.2 URI"""
 
-    if not cpe.startswith("cpe:/"):
+    if not cpe.lower().startswith("cpe:/"):
         raise ValueError("invalid cpe format")
     components = []
     for part in cpe[5:].split(":"):
@@ -33,7 +33,7 @@ def parse_cpe22(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
 def parse_cpe23(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
     """Parse a CPE 2.3 string, also partial CPEs and missing components are treated as ANY."""
 
-    if not cpe.startswith("cpe:2.3:"):
+    if not cpe.lower().startswith("cpe:2.3:"):
         raise ValueError("invalid cpe format")
 
     def split_and_unquote(s: str) -> list[CPEValue]:
@@ -80,9 +80,9 @@ def parse_cpe23(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
 def parse_cpe(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
     """Parse a CPE string into a tuple for the first four components"""
 
-    if cpe.startswith("cpe:2.3:"):
+    if cpe.lower().startswith("cpe:2.3:"):
         return parse_cpe23(cpe)
-    elif cpe.startswith("cpe:/"):
+    elif cpe.lower().startswith("cpe:/"):
         return parse_cpe22(cpe)
     else:
         raise ValueError("unknown cpe format")

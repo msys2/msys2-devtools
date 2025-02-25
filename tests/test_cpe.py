@@ -5,6 +5,7 @@ from msys2_devtools.cpe import parse_cpe, build_cpe22, normalize_cpe, CPEAny, CP
 
 def test_parse_cpe_22():
     assert parse_cpe("cpe:/") == (CPEAny, CPEAny, CPEAny, CPEAny)
+    assert parse_cpe("CPE:/") == (CPEAny, CPEAny, CPEAny, CPEAny)
     assert parse_cpe("cpe:/a:cryptopp:crypto%2b%2b:8.9.0") == ("a", "cryptopp", "crypto++", "8.9.0")
     assert parse_cpe("cpe:/a:cryptopp:crypto%2b%2b") == ("a", "cryptopp", "crypto++", CPEAny)
     assert parse_cpe("cpe:/a::crypto%2b%2b") == ("a", CPEAny, "crypto++", CPEAny)
@@ -20,6 +21,7 @@ def test_parse_cpe_23():
     assert parse_cpe("cpe:2.3:a:*:bar") == ("a", CPEAny, "bar", CPEAny)
     assert parse_cpe("cpe:2.3:a:\\*:bar") == ("a", "*", "bar", CPEAny)
     assert parse_cpe("cpe:2.3:a:-:bar") == ("a", CPENA, "bar", CPEAny)
+    assert parse_cpe("CPE:2.3:a") == ("a", CPEAny, CPEAny, CPEAny)
     with pytest.raises(ValueError):
         assert parse_cpe("cpe:2.3:a::") == ("a", "", "", CPEAny)
     with pytest.raises(ValueError):
