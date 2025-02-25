@@ -5,6 +5,7 @@ import logging
 import json
 import gzip
 from urllib.parse import unquote, quote
+from enum import Enum
 
 from packageurl import PackageURL
 from cyclonedx.model.bom import Bom
@@ -24,26 +25,57 @@ def extract_upstream_version(version: str) -> str:
         "-")[0].split("+", 1)[0].split("~", 1)[-1].split(":", 1)[-1]
 
 
-def parse_cpe22(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
+class CPESpecial(Enum):
+    ANY = "ANY"
+    NA = "NA"
+
+
+CPEValue = str | CPESpecial
+CPEAny = CPESpecial.ANY
+CPENA = CPESpecial.NA
+
+
+def parse_cpe22(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
+    """Parse a CPE 2.2 URI"""
+
     if not cpe.startswith("cpe:/"):
         raise ValueError("invalid cpe format")
-    components = [unquote(v) if v else None for v in cpe[5:].split(":")]
+    components = []
+    for part in cpe[5:].split(":"):
+        if not part:
+            components.append(CPEAny)
+        elif part == "-":
+            components.append(CPENA)
+        else:
+            components.append(unquote(part))
     while len(components) < 4:
-        components.append(None)
+        components.append(CPEAny)
     return tuple(components[:4])
 
 
-def parse_cpe23(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
+def parse_cpe23(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
     """Parse a CPE 2.3 string, also partial CPEs and missing components are treated as ANY."""
 
     if not cpe.startswith("cpe:2.3:"):
         raise ValueError("invalid cpe format")
 
-    def split_and_unquote(s: str) -> list[str]:
+    def split_and_unquote(s: str) -> list[CPEValue]:
         result = []
         current = ''
         escape = False
         lastescaped = False
+
+        def push():
+            if not lastescaped and current == "*":
+                result.append(CPEAny)
+            elif not lastescaped and current == "-":
+                result.append(CPENA)
+            elif not current:
+                # In theory this works, but 2.2 can't represent it
+                raise ValueError("empty component not allowed")
+            else:
+                result.append(current)
+
         for c in s:
             if escape:
                 current += c
@@ -53,24 +85,23 @@ def parse_cpe23(cpe: str) -> tuple[str | None, str | None, str | None, str | Non
                 escape = True
                 lastescaped = False
             elif c == ':':
-                result.append(None if (current == "*" and not lastescaped) else current)
+                push()
                 current = ''
                 lastescaped = False
             else:
                 current += c
                 lastescaped = False
-        if current:
-            result.append(None if (current == "*" and not lastescaped) else current)
+        push()
         return result
 
     components = split_and_unquote(cpe[8:])
     while len(components) < 4:
-        components.append(None)
+        components.append(CPEAny)
     return tuple(components[:4])
 
 
-def parse_cpe(cpe: str) -> tuple[str | None, str | None, str | None, str | None]:
-    """Parse a CPE string into a tuple for the first four components. None means ANY."""
+def parse_cpe(cpe: str) -> tuple[CPEValue, CPEValue, CPEValue, CPEValue]:
+    """Parse a CPE string into a tuple for the first four components"""
 
     if cpe.startswith("cpe:2.3:"):
         return parse_cpe23(cpe)
@@ -80,14 +111,20 @@ def parse_cpe(cpe: str) -> tuple[str | None, str | None, str | None, str | None]
         raise ValueError("unknown cpe format")
 
 
-def build_cpe22(part: str | None, vendor: str | None, product: str | None, version: str | None) -> str:
+def build_cpe22(part: CPEValue, vendor: CPEValue, product: CPEValue, version: CPEValue) -> str:
     """Build a CPE 2.2 URI"""
 
     components = []
 
-    def add(v: str | None) -> str:
-        if v is None:
+    def add(v: CPEValue) -> str:
+        if v == CPEAny:
             components.append("")
+        elif v == CPENA:
+            components.append("-")
+        elif v == "-":
+            components.append("%2D")
+        elif v == "":
+            raise ValueError("empty component not allowed")
         else:
             components.append(quote(v))
 
@@ -125,9 +162,9 @@ def generate_components(value) -> list[Component]:
                     continue
                 if extra_key == "cpe":
                     parsed = parse_cpe(extra_value)
-                    if parsed[3] is None:
+                    if not isinstance(parsed[3], str):
                         parsed = (*parsed[:3], pkgver)
-                    if any(v is None for v in parsed):
+                    if any(not isinstance(v, str) for v in parsed):
                         raise ValueError("CPE must have a part, product, name and version")
                     cpe = build_cpe22(*parsed)
                     cpes.append(cpe)
@@ -139,7 +176,7 @@ def generate_components(value) -> list[Component]:
 
     for cpe in cpes:
         name, version = parse_cpe(cpe)[2:4]
-        assert version is not None and name is not None
+        assert isinstance(version, str) and isinstance(name, str)
         component = Component(name=name, version=version, cpe=cpe, properties=properties)
         components.append(component)
 
