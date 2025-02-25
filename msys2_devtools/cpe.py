@@ -111,3 +111,9 @@ def build_cpe22(part: CPEValue, vendor: CPEValue, product: CPEValue, version: CP
     add(version)
 
     return ("cpe:/" + ":".join(components)).rstrip(":")
+
+
+def normalize_cpe(cpe: str) -> str:
+    """Normalize a CPE string, for comparison. Only supports the first 4 components."""
+
+    return build_cpe22(*parse_cpe(cpe)).lower()

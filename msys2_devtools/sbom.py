@@ -12,7 +12,7 @@ from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
 from .srcinfo import parse_srcinfo
 from .pkgextra import extra_to_pkgextra_entry
-from .cpe import parse_cpe, build_cpe22
+from .cpe import parse_cpe, build_cpe22, normalize_cpe
 
 
 def extract_upstream_version(version: str) -> str:
@@ -146,7 +146,7 @@ def handle_merge_command(args) -> None:
     def get_component_key(component: Component) -> str:
         cpe_key = None
         if component.cpe is not None:
-            cpe_key = parse_cpe(component.cpe.lower())
+            cpe_key = normalize_cpe(component.cpe)
         return (component.name, component.version, component.purl, cpe_key)
 
     for component in src_bom.components:

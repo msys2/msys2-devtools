@@ -1,6 +1,6 @@
 import pytest
 
-from msys2_devtools.cpe import parse_cpe, build_cpe22, CPEAny, CPENA
+from msys2_devtools.cpe import parse_cpe, build_cpe22, normalize_cpe, CPEAny, CPENA
 
 
 def test_parse_cpe_22():
@@ -9,6 +9,7 @@ def test_parse_cpe_22():
     assert parse_cpe("cpe:/a:cryptopp:crypto%2b%2b") == ("a", "cryptopp", "crypto++", CPEAny)
     assert parse_cpe("cpe:/a::crypto%2b%2b") == ("a", CPEAny, "crypto++", CPEAny)
     assert parse_cpe("cpe:/a:-::-") == ("a", CPENA, CPEAny, CPENA)
+    assert parse_cpe("cpe:/a:::%2D") == ("a", CPEAny, CPEAny, "-")
 
 
 def test_parse_cpe_23():
@@ -38,3 +39,7 @@ def test_build_cpe():
     with pytest.raises(ValueError):
         assert build_cpe22("a", CPEAny, CPEAny, "")
 
+
+def test_normalize_cpe():
+    assert normalize_cpe("cpe:/a:FOO:%2B%41:1.2") == "cpe:/a:foo:%2ba:1.2"
+    assert normalize_cpe("cpe:/a:foo:%2ba:1.2") == "cpe:/a:foo:%2ba:1.2"
