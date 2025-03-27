@@ -1,82 +1,260 @@
-#!/bin/bash
-# This script makes sure that:
-#   * all files in the repo are signed
-#   * that they are signed with the keys we know about
-#   * that their signatures are valid
+#!/usr/bin/env python3
+"""
+This script verifies that all files in a repository are properly signed by trusted keys.
 
-set -e -o pipefail
+It ensures that:
+  * all required files in the repo have signatures
+  * signatures are from keys we know about
+  * signatures are valid
+  * checksums of archives are correct (since we are already reading the files)
+"""
 
-PACKAGE_KEYS=(
-    "AD35 1C50 AE08 5775 EB59 333B 5F92 EFC1 A47D 45A1"
-    "8777 1331 B3F1 FF52 6385 6A6D 974C 8BE4 9078 F532"
-    "5F94 4B02 7F7F E209 1985 AA2E FA11 531A A0AA 7F57"
-)
+from __future__ import annotations
 
-INSTALLER_KEYS=(
-    "0EBF 782C 5D53 F7E5 FB02 A667 46BD 761F 7A49 B0EC"
-)
+import os
+import sys
+import tempfile
+import shutil
+import subprocess
+import argparse
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-REPO="/srv/msys2repo"
 
-verify_repo () {
-    if [[ ! -e "$REPO" ]]; then
-        echo "$REPO is missing"
-        exit 1
-    fi
+from fastprogress.fastprogress import progress_bar
 
-    find "$REPO" -type f -print0 | while IFS= read -r -d '' f; do
-        echo "$f"
 
-        if [[ "$f" =~ .*\.sig$ ]]; then
-            sig="$f"
-            base="${sig%.*}"
-            # for every detached signature there needs to be a matching signed file
-            if [[ ! -f "$base" ]]; then
-                echo "$base is missing"
-                exit 1
-            fi
-        else
-            base="$f"
+PACKAGER_KEYS = [
+    "AD35 1C50 AE08 5775 EB59 333B 5F92 EFC1 A47D 45A1",
+    "8777 1331 B3F1 FF52 6385 6A6D 974C 8BE4 9078 F532",
+    "5F94 4B02 7F7F E209 1985 AA2E FA11 531A A0AA 7F57",
+]
 
-            # these are special and don't need a signature
-            if [[ "$base" == "$REPO/lastupdate" ]] || [[ "$base" == "$REPO/lastsync" ]]; then
-                continue
-            fi
-            if [[ "$base" == "$REPO/distrib/README.txt" ]]; then
-                continue
-            fi
+INSTALLER_KEYS = ["0EBF 782C 5D53 F7E5 FB02 A667 46BD 761F 7A49 B0EC"]
 
-            # make sure the signature exists
-            sig="$base.sig"
-            if [[ ! -f "$sig" ]]; then
-                echo "$sig is missing"
-                exit 1
-            fi
+# Files that don't need signatures
+NOT_SIGNED = {"lastupdate", "lastsync", "README.txt"}
 
-            # verify
-            gpg --quiet --verify "$sig" "$base"
-        fi
-    done
-}
 
-import_keys()
-{
-    # import
-    gpg --keyserver keyserver.ubuntu.com --recv "${INSTALLER_KEYS[@]}" "${PACKAGE_KEYS[@]}"
-    # mark as trusted
-    for key in "${INSTALLER_KEYS[@]}" "${PACKAGE_KEYS[@]}"; do
-        echo -e "5\ny\n" |  gpg --command-fd 0 --expert --edit-key "$key" trust;
-    done
-}
+def is_archive(path: str | Path) -> bool:
+    path = Path(path)
+    extensions = {".zst", ".xz", ".gz"}
+    return path.suffix in extensions or path.resolve().suffix in extensions
 
-main () {
-    GNUPGHOME="$(mktemp -d)"
-    export GNUPGHOME
-    dirmngr --daemon
-    import_keys
-    verify_repo
-    rm -Rf "$GNUPGHOME"
-    echo "ALL OK!"
-}
 
-main
+def test_archive(path: str | Path) -> bool:
+    """Test the integrity of an archive file"""
+
+    path = Path(path)
+    resolved = path.resolve()
+    if path.suffix == ".zst" or resolved.suffix == ".zst":
+        cmd = ["zstd", "--quiet", "--test", str(path.resolve())]
+    elif path.suffix == ".xz" or resolved.suffix == ".xz":
+        cmd = ["xz", "--quiet", "--test", str(path.resolve())]
+    elif path.suffix == ".gz" or resolved.suffix == ".gz":
+        cmd = ["gzip", "--quiet", "--test", str(path.resolve())]
+    else:
+        raise Exception(f"Unknown file extension: {path.suffix!r}")
+
+    result = subprocess.run(cmd, capture_output=True, check=False, text=True)
+    return result.returncode == 0
+
+
+class GpgManager:
+
+    def __init__(self, keys: list[str]) -> None:
+        self.keys = keys
+        self.gnupghome: str | None = None
+        self.logger = logging.getLogger("GpgManager")
+
+    def __enter__(self) -> GpgManager:
+        return self
+
+    def __exit__(
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: object
+    ) -> None:
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        if self.gnupghome is not None:
+            shutil.rmtree(self.gnupghome)
+
+    def _get_env(self) -> dict[str, str]:
+        if self.gnupghome is None:
+            self.gnupghome = tempfile.mkdtemp(prefix="gpg_verify_")
+            os.chmod(self.gnupghome, 0o700)
+        env: dict[str, str] = os.environ.copy()
+        env["GNUPGHOME"] = self.gnupghome
+        return env
+
+    def setup(self) -> None:
+        self.logger.info("Importing trusted keys")
+        subprocess.run(
+            [
+                "gpg",
+                "--batch",
+                "--quiet",
+                "--keyserver",
+                "keyserver.ubuntu.com",
+                "--recv",
+            ]
+            + self.keys,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self._get_env(),
+            text=True,
+        )
+
+        for key in self.keys:
+            self.logger.debug(f"Setting trust for key: {key}")
+            subprocess.run(
+                [
+                    "gpg",
+                    "--quiet",
+                    "--batch",
+                    "--no-tty",
+                    "--command-fd",
+                    "0",
+                    "--expert",
+                    "--edit-key",
+                    key,
+                    "trust",
+                ],
+                input="5\ny\n",
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=self._get_env(),
+                text=True,
+            )
+
+    def verify_signature(self, sig_path: Path, file_path: Path) -> bool:
+        result = subprocess.run(
+            ["gpg", "--batch", "--quiet", "--verify", str(sig_path), str(file_path)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self._get_env(),
+            text=True,
+        )
+        if result.returncode != 0 or not result.stderr.strip().endswith("[ultimate]"):
+            self.logger.error(f"GPG verification failed for: {file_path}")
+            self.logger.error(f"GPG error: {result.stderr}")
+            return False
+
+        return True
+
+
+class SignatureVerifier:
+
+    def __init__(self, repo_path: str | Path, gpg_manager: GpgManager) -> None:
+        self.repo_path: Path = Path(repo_path)
+        self.gpg_manager: GpgManager = gpg_manager
+        self.logger = logging.getLogger("SignatureVerifier")
+
+    def verify_file(self, filepath: Path) -> tuple[bool, str]:
+        rel_path: Path = filepath.relative_to(self.repo_path)
+        self.logger.debug(f"Processing: {rel_path}")
+
+        if filepath.name.endswith(".sig"):
+            base_path: Path = filepath.with_suffix("")
+            if not base_path.is_file():
+                return False, "signature file without base file"
+            return True, "ok"
+
+        sig_path: Path = Path(f"{filepath}.sig")
+        if not sig_path.is_file():
+            if filepath.name in NOT_SIGNED:
+                return True, "skipped"
+            return False, "missing signature file"
+
+        if is_archive(filepath):
+            self.logger.debug(f"Testing archive: {rel_path}")
+            if not test_archive(filepath):
+                return False, "invalid archive"
+
+        self.logger.debug(f"Verifying signature: {rel_path}")
+        if self.gpg_manager.verify_signature(sig_path, filepath):
+            return True, "ok"
+        else:
+            return False, "invalid signature"
+
+    def verify_repository(self) -> bool:
+        failed_files: list[tuple[Path, str]] = []
+
+        if not self.repo_path.exists():
+            self.logger.error(f"Repository path does not exist: {self.repo_path}")
+            raise FileNotFoundError(f"Repository not found: {self.repo_path}")
+
+        files: list[Path] = []
+        for root, _, filenames in os.walk(self.repo_path):
+            for filename in filenames:
+                files.append(Path(root) / filename)
+
+        self.logger.info(f"Found {len(files)} files to verify")
+
+        def verify(filepath: Path) -> tuple[tuple[bool, str], Path]:
+            return (self.verify_file(filepath), filepath)
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count() or 8) as executor:
+            for result, filepath in progress_bar(
+                executor.map(verify, files), leave=False, total=len(files)
+            ):
+                status, message = result
+                if not status:
+                    failed_files.append((filepath, message))
+
+        if failed_files:
+            self.logger.error("Failed files:")
+            for filepath, message in failed_files:
+                self.logger.error(f"{filepath}: {message}")
+            return False
+
+        return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Verify signatures for all files in a repository"
+    )
+
+    parser.add_argument(
+        "repo",
+        metavar="REPO",
+        help="Path to the repository to verify",
+    )
+
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+
+    args = parser.parse_args()
+
+    log_level: int = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    )
+    logger = logging.getLogger("main")
+
+    with GpgManager(PACKAGER_KEYS + INSTALLER_KEYS) as gpg_manager:
+        gpg_manager.setup()
+
+        verifier = SignatureVerifier(args.repo, gpg_manager)
+        if verifier.verify_repository():
+            logger.info("All files have valid signatures")
+            print("\nALL OK! All files have valid signatures.")
+            return 0
+        else:
+            logger.error(
+                "Some files have missing or invalid signatures, or are corrupt"
+            )
+            print(
+                "\nVERIFICATION FAILED! Some files have missing or invalid signatures, or are corrupt."
+            )
+            return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
