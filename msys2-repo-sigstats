@@ -19,13 +19,21 @@ from fastprogress.fastprogress import progress_bar
 from msys2_devtools.db import ExtTarFile
 
 KNOWN_KEYS = {
-    "5F92EFC1A47D45A1": "Alexey Pavlov",
-    "4DF3B7664CA56930": "Ray Donnelly",
-    "D595C9AB2C51581E": "Martell Malone",
-    "974C8BE49078F532": "David Macek",
-    "FA11531AA0AA7F57": "Christoph Reiter",
-    "628F528CF3053E04": "David Macek",
+    "AD351C50AE085775EB59333B5F92EFC1A47D45A1": "Alexey Pavlov",
+    "909F9599D1A2046B21FAEB3C4DF3B7664CA56930": "Ray Donnelly",
+    "C65EC8966983541D52B97A16D595C9AB2C51581E": "Martell Malone",
+    "87771331B3F1FF5263856A6D974C8BE49078F532": "David Macek",
+    "5F944B027F7FE2091985AA2EFA11531AA0AA7F57": "Christoph Reiter",
+    "4A6129F4E4B84AE46ED7F635628F528CF3053E04": "David Macek",
 }
+
+
+SHORT_KEYS = {k[-16:]: v for k, v in KNOWN_KEYS.items()}
+
+
+def get_name(keyid: str) -> str:
+    keyid = keyid.upper()
+    return KNOWN_KEYS.get(keyid, SHORT_KEYS.get(keyid, "Unknown"))
 
 
 class Signature(NamedTuple):
@@ -41,7 +49,7 @@ class Signature(NamedTuple):
 
     @property
     def name(self) -> str:
-        return KNOWN_KEYS.get(self.keyid.upper(), "Unknown")
+        return get_name(self.keyid)
 
 
 class SigError(Exception):
@@ -62,8 +70,12 @@ def parse_signature(sig_data: bytes) -> Signature:
             for sub in x.subpackets:
                 if sub.subtype == 2:
                     date = datetime.fromtimestamp(struct.unpack(">I", sub.data)[0], UTC)
-                if sub.subtype == 16:
+                elif sub.subtype == 16 and keyid is None:
                     keyid = binascii.hexlify(sub.data).decode()
+                elif sub.subtype == 33:
+                    if sub.data[0] != 4:
+                        raise SigError("not supported")
+                    keyid = binascii.hexlify(sub.data[1:]).decode()
 
     if keyid is None:
         raise SigError("keyid missing")
@@ -119,11 +131,11 @@ def list_stats(root_path: str, include_all: bool) -> None:
 
     table_data = []
     for keyid, count in c.most_common():
-        name = KNOWN_KEYS.get(keyid.upper(), "Unknown")
-        table_data.append([count, keyid, name])
+        name = get_name(keyid)
+        table_data.append([count, keyid.upper(), name])
 
     headers = ["Count", "Key ID", "Name"]
-    print(tabulate(table_data, headers=headers))
+    print(tabulate(table_data, headers=headers, colalign=("right", "right", "left")))
 
 
 def list_keyid(root_path: str, include_all: bool, keyid: str) -> None:
