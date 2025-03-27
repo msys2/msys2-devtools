@@ -8,7 +8,7 @@ import os
 import struct
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import NamedTuple, Iterator
 
 from pgpdump import BinaryData
@@ -61,7 +61,7 @@ def parse_signature(sig_data: bytes) -> Signature:
         if x.raw == 2:
             for sub in x.subpackets:
                 if sub.subtype == 2:
-                    date = datetime.utcfromtimestamp(struct.unpack(">I", sub.data)[0])
+                    date = datetime.fromtimestamp(struct.unpack(">I", sub.data)[0], UTC)
                 if sub.subtype == 16:
                     keyid = binascii.hexlify(sub.data).decode()
 
