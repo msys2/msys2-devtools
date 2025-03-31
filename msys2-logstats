@@ -365,6 +365,8 @@ def main(argv):
                 continue
             if entry.RequestMethod != "GET":
                 continue
+            if not entry.DownstreamStatus < 400:
+                continue
             if not is_valid_user_agent(entry.UserAgent):
                 continue
             entries.append(entry)
