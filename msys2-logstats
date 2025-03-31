@@ -361,11 +361,15 @@ def main(argv):
                 decoded["time"],
                 None,
             )
-            if entry.RequestHost not in ["repo.msys2.org", "mirror.msys2.org"]:
-                continue
             if entry.RequestMethod != "GET":
                 continue
-            if not entry.DownstreamStatus < 400:
+            if entry.RequestHost == "repo.msys2.org":
+                if entry.DownstreamStatus not in [200, 206, 304]:
+                    continue
+            elif entry.RequestHost == "mirror.msys2.org":
+                if entry.DownstreamStatus not in [302, 304]:
+                    continue
+            else:
                 continue
             if not is_valid_user_agent(entry.UserAgent):
                 continue
