@@ -1,0 +1,92 @@
+#!/bin/env python3
+
+import argparse
+import fnmatch
+import os
+import sys
+
+from msys2_devtools.db import ExtTarFile
+from fastprogress.fastprogress import progress_bar
+
+
+def find_dbs(target_dir: str) -> list[str]:
+    db_paths = set()
+    target_dir = os.path.realpath(target_dir)
+    for root, dirs, files in os.walk(target_dir):
+        for name in files:
+            if fnmatch.fnmatch(name, "*.db"):
+                db_paths.add(os.path.realpath(os.path.join(root, name)))
+
+    return sorted(db_paths)
+
+
+def get_package_paths(root_path: str) -> list[str]:
+    dbs = find_dbs(root_path)
+    paths = set()
+    for db_path in dbs:
+
+        with ExtTarFile.open(db_path, mode="r") as tar:
+            for info in tar.getmembers():
+                file_name = info.name.rsplit("/", 1)[-1]
+                if file_name == "desc":
+                    infodata = tar.extractfile(info).read().decode()
+                    lines = infodata.splitlines()
+                    filename = lines[lines.index("%FILENAME%") + 1]
+                    paths.add(os.path.join(os.path.dirname(db_path), filename))
+    return sorted(paths)
+
+
+def parse_buildinfo(buildinfo: str) -> dict[str, list[str]]:
+    res: dict[str, list[str]] = {}
+    for line in buildinfo.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        key, value = line.split(" =", 1)
+        value = value.strip()
+        values = [value] if value else []
+        res.setdefault(key, []).extend(values)
+
+    return res
+
+
+def get_buildinfo(path: str) -> dict:
+    buildinfo = None
+    files = set()
+    with ExtTarFile.open(path, mode="r") as tar:
+        for info in tar.getmembers():
+            if info.name == ".BUILDINFO":
+                buildinfo = tar.extractfile(info).read().decode()
+            if info.isfile() and not info.name.startswith("."):
+                files.add(info.name)
+
+    if buildinfo is None:
+        raise RuntimeError(f"Cannot find .BUILDINFO in {path}")
+
+    return parse_buildinfo(buildinfo), files
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="List things about the package contents", allow_abbrev=False
+    )
+    parser.add_argument("root", help="path to root dir")
+    args = parser.parse_args(argv[1:])
+
+    something = "mingw-w64-ucrt-x86_64-crt-git-12.0.0.r619.g850703ae4-1-any"
+
+    found = set()
+    paths = get_package_paths(args.root)
+    for p in progress_bar(paths, leave=False):
+        buildinfo, files = get_buildinfo(p)
+        has_archive = any(f.endswith(".a") for f in files)
+        if something in buildinfo["installed"] and has_archive:
+            found.update(buildinfo["pkgbase"])
+
+    for f in sorted(found):
+        print(f)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
