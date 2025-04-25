@@ -65,9 +65,7 @@ def generate_components(value) -> list[Component]:
     for cpe in cpes:
         name, version = parse_cpe(cpe)[2:4]
         assert isinstance(version, str) and isinstance(name, str)
-        # https://github.com/anchore/grype/issues/2618
-        cpe_properties = properties + [Property(name="syft:package:type", value="binary")]
-        component = Component(name=name, version=version, cpe=cpe, properties=cpe_properties)
+        component = Component(name=name, version=version, cpe=cpe, properties=properties)
         components.append(component)
 
     for purl in purls:

@@ -58,24 +58,3 @@ def test_generate_components():
     assert components[0].version == "1.2.3"
     assert components[0].purl is None
     assert components[0].cpe == "cpe:/a:djangoproject:django:1.2.3"
-
-
-def test_grype_workaround():
-    # https://github.com/anchore/grype/issues/2618
-    srcinfo = {"mingw32": "pkgbase = foo\npkgver = 42"}
-    components = generate_components({"srcinfo": srcinfo, "extra": {"references": [
-        "cpe: cpe:/a:djangoproject:django:1.2.3"
-    ]}})
-    for property in components[0].properties:
-        if property.name == "syft:package:type":
-            assert property.value == "binary"
-            break
-    else:
-        assert False, "syft:package:type property not found"
-
-    components = generate_components({"srcinfo": srcinfo, "extra": {"references": [
-        "purl: pkg:pypi/django"
-    ]}})
-    assert all(
-        property.name != "syft:package:type" for property in components[0].properties
-    ), "syft:package:type property should not be present"
