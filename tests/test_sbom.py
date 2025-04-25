@@ -73,6 +73,14 @@ def test_grype_workaround():
     else:
         assert False, "syft:package:type property not found"
 
+    components = generate_components({"srcinfo": srcinfo, "extra": {"references": []}})
+    for property in components[0].properties:
+        if property.name == "syft:package:type":
+            assert property.value == "binary"
+            break
+    else:
+        assert False, "syft:package:type property not found"
+
     components = generate_components({"srcinfo": srcinfo, "extra": {"references": [
         "purl: pkg:pypi/django"
     ]}})

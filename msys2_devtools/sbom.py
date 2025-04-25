@@ -62,12 +62,14 @@ def generate_components(value) -> list[Component]:
                         purl = PackageURL(**{**purl.to_dict(), "version": pkgver})
                     purls.append(purl)
 
+    # https://github.com/anchore/grype/issues/2618
+    grype_stop_matching_by_name = Property(name="syft:package:type", value="binary")
+
     for cpe in cpes:
         name, version = parse_cpe(cpe)[2:4]
         assert isinstance(version, str) and isinstance(name, str)
-        # https://github.com/anchore/grype/issues/2618
-        cpe_properties = properties + [Property(name="syft:package:type", value="binary")]
-        component = Component(name=name, version=version, cpe=cpe, properties=cpe_properties)
+        component = Component(
+            name=name, version=version, cpe=cpe, properties=properties + [grype_stop_matching_by_name])
         components.append(component)
 
     for purl in purls:
@@ -79,7 +81,8 @@ def generate_components(value) -> list[Component]:
             name = pkgbase.split("-", 2)[-1]
         else:
             name = pkgbase
-        component = Component(name=name, version=pkgver, properties=properties)
+        component = Component(
+            name=name, version=pkgver, properties=properties + [grype_stop_matching_by_name])
         components.append(component)
 
     return components
