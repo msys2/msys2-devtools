@@ -6,7 +6,9 @@ import os
 import sys
 
 from msys2_devtools.db import ExtTarFile
+from msys2_devtools.utils import vercmp
 from fastprogress.fastprogress import progress_bar
+from concurrent.futures import ThreadPoolExecutor
 
 
 def find_dbs(target_dir: str) -> list[str]:
@@ -67,21 +69,92 @@ def get_buildinfo(path: str) -> dict:
     return parse_buildinfo(buildinfo), files
 
 
+def parse_vercmp(comparison_expression) -> tuple[str, str | None, str | None]:
+    operators = ['>=', '<=', '=', '>', '<']
+
+    package_name = comparison_expression
+    operator = None
+    version = None
+
+    for op in operators:
+        if op in comparison_expression:
+            parts = comparison_expression.split(op, 1)
+            package_name = parts[0].strip()
+            version = parts[1].strip()
+            operator = op
+            break
+
+    return package_name, operator, version
+
+
+def parse_full_package_name(full_name: str) -> tuple[str, str]:
+    name = full_name.rsplit("-", 3)[0]
+    version = full_name[len(name) + 1:].rsplit("-", 1)[0]
+    return name, version
+
+
+def package_matches(full_name: str, expression: str) -> bool:
+    package_name, package_version = parse_full_package_name(full_name)
+    ex_name, ex_operator, ex_version = parse_vercmp(expression)
+    if ex_name != package_name:
+        return False
+
+    if ex_operator is None or ex_version is None:
+        return True
+
+    if ex_operator == "=":
+        return ex_version == package_version
+    elif ex_operator == ">":
+        return vercmp(package_version, ex_version) > 0
+    elif ex_operator == "<":
+        return vercmp(package_version, ex_version) < 0
+    elif ex_operator == ">=":
+        return vercmp(package_version, ex_version) >= 0
+    elif ex_operator == "<=":
+        return vercmp(package_version, ex_version) <= 0
+    else:
+        raise ValueError(f"Unknown operator: {ex_operator}")
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="List things about the package contents", allow_abbrev=False
     )
     parser.add_argument("root", help="path to root dir")
+    parser.add_argument("--built-with-package",
+                        help="filter packages that had this package installed during build time "
+                             "(optionally with a version constraint, e.g. 'foo>=1.0')")
+    parser.add_argument("--contains-file",
+                        help="filter packages that contain files matching this glob pattern (e.g. '*.a')")
+
     args = parser.parse_args(argv[1:])
 
-    something = "mingw-w64-ucrt-x86_64-crt-git-12.0.0.r619.g850703ae4-1-any"
+    installed_filter = args.built_with_package
+    file_pattern = args.contains_file
 
     found = set()
     paths = get_package_paths(args.root)
-    for p in progress_bar(paths, leave=False):
+
+    def process_path(p):
         buildinfo, files = get_buildinfo(p)
-        has_archive = any(f.endswith(".a") for f in files)
-        if something in buildinfo["installed"] and has_archive:
+        return buildinfo, files
+
+    with ThreadPoolExecutor(4) as executor:
+        for buildinfo, files in progress_bar(executor.map(process_path, paths), total=len(paths), leave=False):
+            if installed_filter is not None:
+                for installed_full_name in buildinfo["installed"]:
+                    if package_matches(installed_full_name, installed_filter):
+                        break
+                else:
+                    continue
+
+            if file_pattern is not None:
+                for file in files:
+                    if fnmatch.fnmatch(file, file_pattern):
+                        break
+                else:
+                    continue
+
             found.update(buildinfo["pkgbase"])
 
     for f in sorted(found):
