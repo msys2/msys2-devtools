@@ -1,6 +1,6 @@
 import io
 
-import zstandard
+from pyzstd import ZstdFile, ZstdError
 import tarfile
 
 
@@ -8,22 +8,28 @@ class ExtTarFile(tarfile.TarFile):
     """Extends TarFile to support zstandard"""
 
     @classmethod
-    def zstdopen(cls, name, mode="r", fileobj=None, cctx=None, dctx=None, **kwargs):  # type: ignore
-        """Open zstd compressed tar archive name for reading or writing.
-           Appending is not allowed.
-        """
-        if mode not in ("r"):
-            raise ValueError("mode must be 'r'")
+    def zstdopen(cls, name, mode="r", fileobj=None, **kwargs):  # type: ignore
+        """Open zstd compressed tar archive"""
 
+        if mode not in ("r", "w", "x", "a"):
+            raise ValueError("mode must be 'r', 'w' or 'x' or 'a'")
+
+        zstfileobj = None
         try:
-            zobj = zstandard.open(fileobj or name, mode + "b", cctx=cctx, dctx=dctx)
-            with zobj:
-                data = zobj.read()
-        except (zstandard.ZstdError, EOFError) as e:
+            zstfileobj = ZstdFile(fileobj or name, mode)
+            if "r" in mode:
+                zstfileobj.peek(1)  # raises ZstdError if not a zstd file
+        except ZstdError as e:
+            if zstfileobj is not None:
+                zstfileobj.close()
             raise tarfile.ReadError("not a zstd file") from e
 
-        fileobj = io.BytesIO(data)
-        t = cls.taropen(name, mode, fileobj, **kwargs)
+        try:
+            t = cls.taropen(name, mode, zstfileobj, **kwargs)
+        except Exception:
+            zstfileobj.close()
+            raise
+
         t._extfileobj = False
         return t
 
