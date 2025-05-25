@@ -160,8 +160,11 @@ def handle_merge_command(args) -> None:
     with open(args.target_sbom, "r", encoding="utf-8") as h:
         target_bom: Bom = Bom.from_json(json.loads(h.read()))
 
+    done = set()
     for component in target_bom.components:
         key = get_component_key(component)
+        if key in done:
+            continue
         if key not in properties:
             raise ValueError(f"Component not found in source SBOM: {key}")
         for src_prop in properties.get(key, []):
@@ -170,6 +173,7 @@ def handle_merge_command(args) -> None:
                     break
             else:
                 component.properties.add(src_prop)
+        done.add(key)
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(target_bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
