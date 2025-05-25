@@ -19,7 +19,7 @@ class ExtTarFile(tarfile.TarFile):
             zstfileobj = ZstdFile(fileobj or name, mode)
             if "r" in mode:
                 zstfileobj.peek(1)  # raises ZstdError if not a zstd file
-        except ZstdError as e:
+        except (ZstdError, EOFError) as e:
             if zstfileobj is not None:
                 zstfileobj.close()
             raise tarfile.ReadError("not a zstd file") from e
