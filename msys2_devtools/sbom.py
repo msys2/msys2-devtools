@@ -8,6 +8,8 @@ import gzip
 from packageurl import PackageURL
 from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType, Property
+from cyclonedx.model.vulnerability import BomTargetVersionRange
+from cyclonedx.model.impact_analysis import ImpactAnalysisAffectedStatus
 from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
 from .srcinfo import parse_srcinfo
@@ -130,6 +132,30 @@ def add_create_subcommand(subparsers) -> None:
     parser.set_defaults(func=handle_create_command)
 
 
+def include_unaffected_from_grype(grype_data: dict, target_bom: Bom) -> None:
+    # mapping of vulnerability ID to list of fixed versions
+    fixed_mapping = {}
+    for match in grype_data["matches"]:
+        vuln = match["vulnerability"]
+        vuln_id = vuln["id"]
+        vuln_state = vuln["fix"]["state"]
+        vuln_versions = vuln["fix"]["versions"]
+        if vuln_state == "fixed":
+            fixed_mapping[vuln_id] = vuln_versions
+
+    # In the cdx sbom expose them as unaffected versions
+    for vuln in target_bom.vulnerabilities:
+        if vuln.id not in fixed_mapping:
+            continue
+        versions = fixed_mapping[vuln.id]
+        for target in vuln.affects:
+            target_versions = [
+                BomTargetVersionRange(version=version, status=ImpactAnalysisAffectedStatus.UNAFFECTED)
+                for version in versions
+            ]
+            target.versions = target_versions
+
+
 def handle_merge_command(args) -> None:
     """Merge component properties from the source SBOM into a target SBOM.
 
@@ -160,6 +186,11 @@ def handle_merge_command(args) -> None:
     with open(args.target_sbom, "r", encoding="utf-8") as h:
         target_bom: Bom = Bom.from_json(json.loads(h.read()))
 
+    if args.grype_json is not None:
+        with open(args.grype_json, "r", encoding="utf-8") as h:
+            grype_data = json.loads(h.read())
+        include_unaffected_from_grype(grype_data, target_bom)
+
     done = set()
     for component in target_bom.components:
         key = get_component_key(component)
@@ -189,6 +220,11 @@ def add_merge_subcommand(subparsers) -> None:
     )
     parser.add_argument("src_sbom", help="The source SBOM")
     parser.add_argument("target_sbom", help="The target SBOM")
+    parser.add_argument(
+        "--grype-json",
+        help="Include additional info from a grype json file, like fixed versions",
+        default=None
+    )
     parser.set_defaults(func=handle_merge_command)
 
 
