@@ -8,7 +8,7 @@ import gzip
 from packageurl import PackageURL
 from cyclonedx.model.bom import Bom
 from cyclonedx.model.component import Component, ComponentType, Property
-from cyclonedx.model.vulnerability import BomTargetVersionRange
+from cyclonedx.model.vulnerability import BomTargetVersionRange, VulnerabilityAnalysis, ImpactAnalysisState
 from cyclonedx.model.impact_analysis import ImpactAnalysisAffectedStatus
 from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
@@ -163,7 +163,8 @@ def include_unaffected_from_grype(grype_data: dict, target_bom: Bom) -> None:
 
 def handle_fixup_command(args) -> None:
     """Adjust the target SBOM by rewriting component properties and
-    adding unaffected versions from a grype json file."""
+    adding unaffected versions from a grype json file, and marking
+    unaffected components."""
 
     logging.basicConfig(level="INFO")
 
@@ -175,6 +176,11 @@ def handle_fixup_command(args) -> None:
             grype_data = json.loads(h.read())
         include_unaffected_from_grype(grype_data, target_bom)
 
+    # mapping of bom_ref to pkgbase
+    pkgbase_mapping = {}
+
+    # Rewrite the msys2:pkgbase property to match the syft:location:0:path property
+    # We use syft:location:0:path to funnel the package name through grype
     for component in target_bom.components:
         value = None
         existing_prop = None
@@ -185,10 +191,41 @@ def handle_fixup_command(args) -> None:
                 existing_prop = prop
 
         if value is not None:
+            pkgbase_mapping[component.bom_ref.value] = value
             if existing_prop is not None:
                 existing_prop.value = value
             else:
                 component.properties.add(Property(name="msys2:pkgbase", value=value))
+
+    # Gives a VulnerabilityAnalysis per package, per vuln ID
+    vulnerability_status = {}
+    if args.srcinfo_cache is not None:
+        srcinfo_cache = os.path.abspath(args.srcinfo_cache)
+        with open(srcinfo_cache, "rb") as h:
+            cache = json.loads(gzip.decompress(h.read()))
+
+        for value in cache.values():
+            pkgbase = ""
+            for srcinfo in value["srcinfo"].values():
+                base = parse_srcinfo(srcinfo)[0]
+                pkgbase = base["pkgbase"][0]
+                break
+            ignore_vulnerabilities = value.get("extra", {}).get("ignore_vulnerabilities", [])
+            for vuln_id in ignore_vulnerabilities:
+                vulnerability_status.setdefault(vuln_id, {})[pkgbase] = \
+                    VulnerabilityAnalysis(state=ImpactAnalysisState.NOT_AFFECTED)
+
+    # Apply the vulnerability status to the vulnerabilities in the target SBOM
+    for vuln in target_bom.vulnerabilities:
+        analysis = None
+        if vuln.id in vulnerability_status:
+            status = vulnerability_status[vuln.id]
+            for target in vuln.affects:
+                pkgbase = pkgbase_mapping.get(target.ref, None)
+                if pkgbase is not None and pkgbase in status:
+                    analysis = status[pkgbase]
+                    break
+        vuln.analysis = analysis
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(target_bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
@@ -207,6 +244,11 @@ def add_fixup_subcommand(subparsers) -> None:
     parser.add_argument(
         "--grype-json",
         help="Include additional info from a grype json file, like fixed versions",
+        default=None
+    )
+    parser.add_argument(
+        "--srcinfo-cache",
+        help="Include additional info for the vulnerability status",
         default=None
     )
     parser.set_defaults(func=handle_fixup_command)
