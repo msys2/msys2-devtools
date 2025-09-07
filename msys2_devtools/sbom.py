@@ -42,7 +42,12 @@ def generate_components(value) -> list[Component]:
 
     purls: list[PackageURL] = []
     cpes: list[str] = []
-    properties = [Property(name="msys2:pkgbase", value=pkgbase)]
+    properties = [
+        Property(name="msys2:pkgbase", value=pkgbase),
+        # syft:location:0:path gets preserved by grype in all output formats,
+        # so we can use it as a way to identify the package later
+        Property(name="syft:location:0:path", value=pkgbase),
+    ]
 
     if "extra" in value and "references" in value["extra"]:
         pkgextra = extra_to_pkgextra_entry(value["extra"])
@@ -212,6 +217,41 @@ def handle_merge_command(args) -> None:
         file.write(serialized_json)
 
 
+def handle_fixup_command(args) -> None:
+    """Adjust the target SBOM by rewriting component properties and
+    adding unaffected versions from a grype json file."""
+
+    logging.basicConfig(level="INFO")
+
+    with open(args.target_sbom, "r", encoding="utf-8") as h:
+        target_bom: Bom = Bom.from_json(json.loads(h.read()))
+
+    if args.grype_json is not None:
+        with open(args.grype_json, "r", encoding="utf-8") as h:
+            grype_data = json.loads(h.read())
+        include_unaffected_from_grype(grype_data, target_bom)
+
+    for component in target_bom.components:
+        value = None
+        existing_prop = None
+        for prop in component.properties:
+            if prop.name == "syft:location:0:path":
+                value = prop.value
+            elif prop.name == "msys2:pkgbase":
+                existing_prop = prop
+
+        if value is not None:
+            if existing_prop is not None:
+                existing_prop.value = value
+            else:
+                component.properties.add(Property(name="msys2:pkgbase", value=value))
+
+    my_json_outputter: 'JsonOutputter' = JsonV1Dot5(target_bom)
+    serialized_json = my_json_outputter.output_as_string(indent=2)
+    with open(args.target_sbom, 'w', encoding="utf-8") as file:
+        file.write(serialized_json)
+
+
 def add_merge_subcommand(subparsers) -> None:
     parser = subparsers.add_parser(
         "merge",
@@ -228,12 +268,29 @@ def add_merge_subcommand(subparsers) -> None:
     parser.set_defaults(func=handle_merge_command)
 
 
+def add_fixup_subcommand(subparsers) -> None:
+    parser = subparsers.add_parser(
+        "fixup",
+        description="Adjust the target SBOM by rewriting component properties and "
+                    "adding unaffected versions from a grype json file",
+        allow_abbrev=False
+    )
+    parser.add_argument("target_sbom", help="The target SBOM to change")
+    parser.add_argument(
+        "--grype-json",
+        help="Include additional info from a grype json file, like fixed versions",
+        default=None
+    )
+    parser.set_defaults(func=handle_fixup_command)
+
+
 def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(description="SBOM tools", allow_abbrev=False)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_create_subcommand(subparsers)
     add_merge_subcommand(subparsers)
+    add_fixup_subcommand(subparsers)
 
     args = parser.parse_args(argv[1:])
     args.func(args)
