@@ -14,7 +14,7 @@ from cyclonedx.output.json import JsonV1Dot5, Json as JsonOutputter
 
 from .srcinfo import parse_srcinfo
 from .pkgextra import extra_to_pkgextra_entry
-from .cpe import parse_cpe, build_cpe22, normalize_cpe
+from .cpe import parse_cpe, build_cpe22
 
 
 def extract_upstream_version(version: str) -> str:
@@ -161,62 +161,6 @@ def include_unaffected_from_grype(grype_data: dict, target_bom: Bom) -> None:
             target.versions = target_versions
 
 
-def handle_merge_command(args) -> None:
-    """Merge component properties from the source SBOM into a target SBOM.
-
-    Components are matched by name, version, purl, and CPE (normalized).
-    """
-
-    logging.basicConfig(level="INFO")
-
-    with open(args.src_sbom, "r", encoding="utf-8") as h:
-        src_bom: Bom = Bom.from_json(json.loads(h.read()))
-
-    properties = {}
-
-    def get_component_key(component: Component) -> str:
-        cpe_key = None
-        if component.cpe is not None:
-            cpe_key = normalize_cpe(component.cpe)
-        return (component.name, component.version, component.purl, cpe_key)
-
-    for component in src_bom.components:
-        assert isinstance(component, Component)
-        key = get_component_key(component)
-        if key not in properties:
-            properties[key] = component.properties
-        else:
-            properties[key].update(component.properties)
-
-    with open(args.target_sbom, "r", encoding="utf-8") as h:
-        target_bom: Bom = Bom.from_json(json.loads(h.read()))
-
-    if args.grype_json is not None:
-        with open(args.grype_json, "r", encoding="utf-8") as h:
-            grype_data = json.loads(h.read())
-        include_unaffected_from_grype(grype_data, target_bom)
-
-    done = set()
-    for component in target_bom.components:
-        key = get_component_key(component)
-        if key in done:
-            continue
-        if key not in properties:
-            raise ValueError(f"Component not found in source SBOM: {key}")
-        for src_prop in properties.get(key, []):
-            for prop in component.properties:
-                if prop.name == src_prop.name and prop.value == src_prop.value:
-                    break
-            else:
-                component.properties.add(src_prop)
-        done.add(key)
-
-    my_json_outputter: 'JsonOutputter' = JsonV1Dot5(target_bom)
-    serialized_json = my_json_outputter.output_as_string(indent=2)
-    with open(args.target_sbom, 'w', encoding="utf-8") as file:
-        file.write(serialized_json)
-
-
 def handle_fixup_command(args) -> None:
     """Adjust the target SBOM by rewriting component properties and
     adding unaffected versions from a grype json file."""
@@ -252,22 +196,6 @@ def handle_fixup_command(args) -> None:
         file.write(serialized_json)
 
 
-def add_merge_subcommand(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "merge",
-        description="Merge component properties from the source SBOM into a target SBOM",
-        allow_abbrev=False
-    )
-    parser.add_argument("src_sbom", help="The source SBOM")
-    parser.add_argument("target_sbom", help="The target SBOM")
-    parser.add_argument(
-        "--grype-json",
-        help="Include additional info from a grype json file, like fixed versions",
-        default=None
-    )
-    parser.set_defaults(func=handle_merge_command)
-
-
 def add_fixup_subcommand(subparsers) -> None:
     parser = subparsers.add_parser(
         "fixup",
@@ -289,7 +217,6 @@ def main(argv: list[str]) -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_create_subcommand(subparsers)
-    add_merge_subcommand(subparsers)
     add_fixup_subcommand(subparsers)
 
     args = parser.parse_args(argv[1:])
