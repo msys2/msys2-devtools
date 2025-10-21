@@ -21,13 +21,13 @@ jobs:
   
     - name: Install dependencies
       run: |
-        pipx install poetry
-        poetry install -Eall
+        pipx install uv
+        uv sync --all-extras
 
     - name: Run tests
       run: |
-        poetry run pytest
+        uv run pytest
 
     - name: Run flake8
       run: |
-        poetry run flake8 .
+        uv run flake8 .

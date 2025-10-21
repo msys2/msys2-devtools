@@ -1,3 +1,5 @@
 *.pyc
 logs.txt
 logs-report.md
+poetry.lock
+.venv/
