@@ -102,18 +102,22 @@ def get_srcinfo_for_pkgbuild(msys2_root: str, args: Tuple[str, str]) -> Optional
             for name in get_mingw_arch_list(msys2_root, git_cwd, git_path):
                 env = os.environ.copy()
                 env["MINGW_ARCH"] = name
-                srcinfos[name] = check_output_msys(
+                srcinfo = check_output_msys(
                     msys2_root,
                     ["/usr/bin/makepkg-mingw",
                      "--printsrcinfo", "-p", git_path],
                     cwd=git_cwd,
                     env=env).decode("utf-8")
+                assert srcinfo
+                srcinfos[name] = srcinfo
         else:
-            srcinfos["msys"] = check_output_msys(
+            srcinfo = check_output_msys(
                 msys2_root,
                 ["/usr/bin/makepkg",
                  "--printsrcinfo", "-p", git_path],
                 cwd=git_cwd).decode("utf-8")
+            assert srcinfo
+            srcinfos["msys"] = srcinfo
 
         repo = subprocess.check_output(
             ["git", "ls-remote", "--get-url", "origin"],
