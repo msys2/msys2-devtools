@@ -34,7 +34,7 @@ libiconv
 
 def test_zstd():
     fileobj = io.BytesIO()
-    with ExtTarFile.open(fileobj=fileobj, mode='w:zstd') as tar:
+    with ExtTarFile.open(fileobj=fileobj, mode='w:zst') as tar:
         data = "Hello world!".encode('utf-8')
         info = tarfile.TarInfo("test.txt")
         info.size = len(data)
