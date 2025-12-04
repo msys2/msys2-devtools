@@ -43,7 +43,7 @@ msys2-sbom = "msys2_devtools.sbom:run"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0,<9",
+    "pytest>=8.0.0,<10",
     "flake8>=7.0.0,<8",
 ]
 
