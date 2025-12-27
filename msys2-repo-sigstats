@@ -16,7 +16,7 @@ from pgpdump.utils import PgpdumpException
 from tabulate import tabulate
 from fastprogress.fastprogress import progress_bar
 
-from msys2_devtools.db import ExtTarFile
+from msys2_devtools.exttarfile import tarfile
 
 KNOWN_KEYS = {
     "AD351C50AE085775EB59333B5F92EFC1A47D45A1": "Alexey Pavlov",
@@ -105,7 +105,7 @@ def get_signature_paths(root_path: str, include_all: bool) -> list[str]:
         if include_all:
             paths.update(glob.glob(os.path.join(os.path.dirname(db_path), "*.sig")))
             continue
-        with ExtTarFile.open(db_path, mode="r") as tar:
+        with tarfile.TarFile.open(db_path, mode="r") as tar:
             for info in tar.getmembers():
                 file_name = info.name.rsplit("/", 1)[-1]
                 if file_name == "desc":

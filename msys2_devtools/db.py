@@ -1,6 +1,6 @@
 import io
 
-from .exttarfile import ExtTarFile
+from .exttarfile import tarfile
 
 
 def parse_desc(t: str) -> dict[str, list[str]]:
@@ -26,7 +26,7 @@ def parse_repo(data: bytes) -> dict[str, dict[str, list[str]]]:
     sources: dict[str, dict[str, list[str]]] = {}
 
     with io.BytesIO(data) as f:
-        with ExtTarFile.open(fileobj=f, mode="r") as tar:
+        with tarfile.TarFile.open(fileobj=f, mode="r") as tar:
             packages: dict[str, list] = {}
             for info in tar:
                 package_id = info.name.split("/", 1)[0]
