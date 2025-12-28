@@ -28,6 +28,6 @@ jobs:
       run: |
         uv run pytest
 
-    - name: Run flake8
+    - name: Run ruff
       run: |
-        uv run flake8 .
+        uv run ruff check

@@ -44,9 +44,17 @@ msys2-sbom = "msys2_devtools.sbom:run"
 [dependency-groups]
 dev = [
     "pytest>=8.0.0,<10",
-    "flake8>=7.0.0,<8",
+    "ruff>=0.14.10,<0.15.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 130
+exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E741"]
