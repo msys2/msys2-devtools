@@ -549,6 +549,7 @@ sigstats = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "msys2-devtools", extra = ["all"] },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -577,6 +578,7 @@ provides-extras = ["sbom", "logstats", "sigstats", "pypi-cache", "all"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "msys2-devtools", extras = ["all"] },
     { name = "pytest", specifier = ">=8.0.0,<10" },
     { name = "ruff", specifier = ">=0.15.0,<0.16.0" },
 ]

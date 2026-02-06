@@ -45,6 +45,7 @@ msys2-sbom = "msys2_devtools.sbom:run"
 dev = [
     "pytest>=8.0.0,<10",
     "ruff>=0.15.0,<0.16.0",
+    "msys2-devtools[all]",
 ]
 
 [build-system]
