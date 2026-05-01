@@ -24,7 +24,7 @@ logstats = [
 ]
 sigstats = [
     "pgpdump>=1.5,<2",
-    "fastprogress>=1.0.3,<2",
+    "fastprogress>=1.0.3,<1.1",
 ]
 pypi-cache = ["packageurl-python>=0.17.0,<0.18"]
 all = [
@@ -32,7 +32,7 @@ all = [
     "packageurl-python>=0.17.0,<0.18",
     "netaddr>=1.0.0,<2",
     "pgpdump>=1.5,<2",
-    "fastprogress>=1.0.3,<2",
+    "fastprogress>=1.0.3,<1.1",
     "requests-cache>=1.2.1,<2",
 ]
 
