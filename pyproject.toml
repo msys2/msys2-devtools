@@ -34,6 +34,7 @@ all = [
     "pgpdump>=1.5,<2",
     "fastprogress>=1.0.3,<1.1",
     "requests-cache>=1.2.1,<2",
+    "pefile>=2024.8.26",
 ]
 
 [project.scripts]

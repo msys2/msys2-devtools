@@ -4,11 +4,13 @@ import argparse
 import fnmatch
 import os
 import sys
+from contextlib import contextmanager, closing
 
 from msys2_devtools.exttarfile import tarfile
 from msys2_devtools.utils import vercmp
 from fastprogress.fastprogress import progress_bar
 from concurrent.futures import ThreadPoolExecutor
+import pefile
 
 
 def find_dbs(target_dir: str) -> list[str]:
@@ -53,20 +55,57 @@ def parse_buildinfo(buildinfo: str) -> dict[str, list[str]]:
     return res
 
 
-def get_buildinfo(path: str) -> dict:
+@contextmanager
+def pefile_set_max_import_symbols(max_symbols: int):
+    old = pefile.MAX_IMPORT_SYMBOLS
+    pefile.MAX_IMPORT_SYMBOLS = max_symbols
+    try:
+        yield
+    finally:
+        pefile.MAX_IMPORT_SYMBOLS = old
+
+
+# python uses .pyd for extensions, ruby uses .so, and octave uses .oct
+PE_FILE_EXTENSIONS = (".dll", ".exe", ".pyd", ".so", ".oct")
+
+
+def get_imported_dlls(data: bytes, name: str) -> set[str]:
+    try:
+        with pefile_set_max_import_symbols(0x10000), \
+            closing(pefile.PE(data=data, fast_load=True)) as pe:
+            pe.parse_data_directories(directories=[
+                pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT']
+            ])
+
+            if len(pe.get_warnings()) > 0:
+                print(f"Warnings for PE ({name}):")
+                pe.show_warnings()
+
+            if not hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
+                return set()
+            return {entry.dll.decode().lower() for entry in pe.DIRECTORY_ENTRY_IMPORT}
+    except pefile.PEFormatError:
+        print(f"PEFormatError while parsing PE file ({name}), skipping imports")
+        return set()
+
+
+def get_buildinfo(path: str, needs_files: bool, needs_imports: bool) -> tuple[dict, set[str], set[str]]:
     buildinfo = None
     files = set()
+    imports = set()
     with tarfile.TarFile.open(path, mode="r") as tar:
         for info in tar.getmembers():
             if info.name == ".BUILDINFO":
                 buildinfo = tar.extractfile(info).read().decode()
-            if info.isfile() and not info.name.startswith("."):
+            if needs_files and info.isfile() and not info.name.startswith("."):
                 files.add(info.name)
+            if needs_imports and info.isfile() and info.name.lower().endswith(PE_FILE_EXTENSIONS):
+                data = tar.extractfile(info).read()
+                imports.update(get_imported_dlls(data, info.name))
 
     if buildinfo is None:
         raise RuntimeError(f"Cannot find .BUILDINFO in {path}")
-
-    return parse_buildinfo(buildinfo), files
+    return parse_buildinfo(buildinfo), files, imports
 
 
 def parse_vercmp(comparison_expression) -> tuple[str, str | None, str | None]:
@@ -126,21 +165,28 @@ def main(argv):
                              "(optionally with a version constraint, e.g. 'foo>=1.0')")
     parser.add_argument("--contains-file",
                         help="filter packages that contain files matching this glob pattern (e.g. '*.a')")
+    parser.add_argument("--imports-dll",
+                        action="append",
+                        default=[],
+                        metavar="DLL",
+                        help="filter packages that import this DLL (e.g. 'libfoo.dll'); "
+                             "can be given multiple times")
 
     args = parser.parse_args(argv[1:])
 
     installed_filter = args.built_with_package
     file_pattern = args.contains_file
+    dll_filters = args.imports_dll
 
     found = set()
     paths = get_package_paths(args.root)
 
     def process_path(p):
-        buildinfo, files = get_buildinfo(p)
-        return buildinfo, files
+        buildinfo, files, imports = get_buildinfo(p, needs_files=file_pattern is not None, needs_imports=bool(dll_filters))
+        return buildinfo, files, imports
 
     with ThreadPoolExecutor(4) as executor:
-        for buildinfo, files in progress_bar(executor.map(process_path, paths), total=len(paths), leave=False):
+        for buildinfo, files, imports in progress_bar(executor.map(process_path, paths), total=len(paths), leave=False):
             if installed_filter is not None:
                 for installed_full_name in buildinfo["installed"]:
                     if package_matches(installed_full_name, installed_filter):
@@ -153,6 +199,10 @@ def main(argv):
                     if fnmatch.fnmatch(file, file_pattern):
                         break
                 else:
+                    continue
+
+            if dll_filters:
+                if not any(dll in imports for dll in dll_filters):
                     continue
 
             found.update(buildinfo["pkgbase"])
