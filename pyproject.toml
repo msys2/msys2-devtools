@@ -45,7 +45,7 @@ msys2-sbom = "msys2_devtools.sbom:run"
 [dependency-groups]
 dev = [
     "pytest>=8.0.0,<10",
-    "ruff>=0.15.0,<0.16.0",
+    "ruff>=0.16.0,<0.17.0",
     "msys2-devtools[all]",
 ]
 
