@@ -104,7 +104,8 @@ def write_sbom(srcinfo_cache: str, sbom: str) -> None:
         components = generate_components(value)
         for component in components:
             bom.components.add(component)
-            bom.register_dependency(root_component, [component])
+
+    bom.register_dependency(root_component, bom.components)
 
     my_json_outputter: 'JsonOutputter' = JsonV1Dot5(bom)
     serialized_json = my_json_outputter.output_as_string(indent=2)
